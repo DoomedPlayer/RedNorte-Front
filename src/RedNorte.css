@@ -1,0 +1,141 @@
+
+/* RedNorte.css - Estilo Profesional para Portal Médico */
+
+:root {
+  --primary-color: #0056b3;
+  --secondary-color: #00a8cc;
+  --background-light: #f4f7f6;
+  --text-dark: #333;
+  --text-light: #666;
+  --white: #ffffff;
+  --border-color: #d1d9e6;
+  --accent-color: #28a745; /* Verde para estados positivos/programados */
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: var(--background-light);
+  color: var(--text-dark);
+}
+
+.app-container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+/* Header / Navbar */
+.navbar {
+  background-color: var(--primary-color);
+  color: var(--white);
+  padding: 1rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-radius: 8px;
+  margin-bottom: 30px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.navbar h1 {
+  margin: 0;
+  font-size: 1.8rem;
+  letter-spacing: 1px;
+}
+
+/* Card del Paciente */
+.paciente-card {
+  background-color: var(--white);
+  border-radius: 12px;
+  padding: 25px;
+  margin-bottom: 25px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--border-color);
+}
+
+.paciente-header {
+  border-bottom: 2px solid var(--background-light);
+  padding-bottom: 15px;
+  margin-bottom: 20px;
+}
+
+.paciente-header h2 {
+  color: var(--primary-color);
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.paciente-info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+  font-size: 0.95rem;
+}
+
+.info-item strong {
+  color: var(--text-light);
+  display: block;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+}
+
+/* Sección de Citas */
+.citas-section {
+  margin-top: 20px;
+}
+
+.citas-section h3 {
+  font-size: 1.1rem;
+  color: var(--text-light);
+  margin-bottom: 15px;
+}
+
+/* Card de Cita Individual */
+.cita-card {
+  background-color: #fafbfc;
+  border-left: 5px solid var(--secondary-color);
+  border-radius: 6px;
+  padding: 15px;
+  margin-bottom: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: transform 0.2s;
+}
+
+.cita-card:hover {
+  transform: translateX(5px);
+  background-color: #f0f4f8;
+}
+
+.cita-details p {
+  margin: 5px 0;
+}
+
+.cita-status {
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.status-programada {
+  background-color: #e2f4ff;
+  color: #007bff;
+}
+
+.status-atendida {
+  background-color: #e6fffa;
+  color: #28a745;
+}
+
+/* Footer */
+.footer {
+  text-align: center;
+  margin-top: 50px;
+  color: var(--text-light);
+  font-size: 0.85rem;
+}
