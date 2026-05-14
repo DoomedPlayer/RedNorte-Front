@@ -1,70 +1,84 @@
-# Getting Started with Create React App
+# Red Norte - Portal del Paciente 
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Este repositorio contiene el código fuente del frontend del Portal del Paciente de Red Norte. Se trata de una aplicación de una sola página basada en React y desarrollada con TypeScript, diseñada para mostrar la información del paciente y sus citas médicas programadas.
 
-## Available Scripts
+## Descripción general
 
-In the project directory, you can run:
+La aplicación proporciona una interfaz intuitiva para los pacientes del sistema médico "Red Norte". Recupera y muestra los datos del paciente, incluyendo información personal y una lista de sus citas médicas. El proyecto utiliza una arquitectura frontend moderna con una clara separación de responsabilidades, empleando el patrón ViewModel mediante React Hooks personalizados para la gestión del estado y la lógica de negocio.
+
+### Características principales
+* **Panel del paciente**: Muestra el nombre completo del paciente, el RUT y la información de contacto.
+* **Lista de citas**: Muestra todas las citas programadas del paciente.
+
+* **Detalles de la cita**: Cada ficha de cita muestra la especialidad médica, la fecha, la hora, la ubicación (`Box`) y el estado actual (p. ej., PROGRAMADA).
+
+* **Diseño adaptable**: Una interfaz de usuario limpia y profesional, diseñada para un portal médico.
+
+## Tecnologías utilizadas
+* **Framework**: React
+* **Lenguaje**: TypeScript y JavaScript
+* **Configuración del proyecto**: Create React App
+* **Arquitectura**: La aplicación sigue una arquitectura basada en componentes con un patrón ViewModel. Se utilizan hooks personalizados (p. ej., `useHospitalViewModel`) para gestionar el estado y la lógica de las vistas.
+
+* **Estilo**: CSS personalizado con variables para un tema consistente (`RedNorte.css`).
+
+## Estructura del proyecto
+El código fuente está organizado para mantener una clara separación de responsabilidades:
+
+```
+src/
+├── components/ # Componentes reutilizables de React (CitaCard, PacienteInfo)
+├── models/ # Interfaces TypeScript para estructuras de datos (Paciente, Cita)
+├── viewmodels/ # Hooks personalizados que actúan como ViewModels para el estado y la lógica
+├── views/ # Vistas/páginas principales de la aplicación (PortalHospital)
+├── App.tsx # Componente y diseño principal de la aplicación
+└── index.js # Punto de entrada de la aplicación
+```
+
+## Primeros pasos
+
+Para ejecutar este proyecto localmente, necesitarás tener Node.js y npm instalados.
+
+1. **Clonar el repositorio:**
+
+```sh
+
+git clone https://github.com/doomedplayer/rednorte-front.git
+
+```
+
+2. **Navegar al directorio del proyecto:**
+
+```sh
+
+cd rednorte-front
+
+```
+
+3. **Instalar dependencias:**
+
+```sh
+
+npm install
+
+```
+
+## Scripts disponibles
+
+En el directorio del proyecto, puedes ejecutar:
 
 ### `npm start`
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+Ejecuta la aplicación en modo de desarrollo.
+Abre (http://localhost:3000) para verla en tu navegador.
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+La página se recargará al realizar cambios. También puedes ver errores de lint en la consola.
 
 ### `npm test`
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+Inicia el ejecutor de pruebas en modo interactivo. Esto te permite ejecutar pruebas y ver los resultados a medida que realizas cambios en el código.
 
 ### `npm run build`
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
-
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
-
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
-
-### `npm run eject`
-
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
-
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
-
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
-
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+Compila la aplicación para producción en la carpeta `build`.
+Empaqueta correctamente React en modo producción y optimiza la compilación para obtener el mejor rendimiento. La compilación se minimiza y los nombres de archivo incluyen hashes. Tu aplicación está lista para desplegarse.
