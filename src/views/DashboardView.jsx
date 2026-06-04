@@ -50,7 +50,7 @@ export default function DashboardView() {
                     🏥 REDNORTE
                 </div>
                 <h1 style={{ margin: 0, fontSize: '24px' }}>Portal del Paciente</h1>
-                <span style={{ fontSize: '13px', backgroundColor: 'rgba(255,255,255,0.2)', padding: '5px 12px', borderRadius: '20px' }}>Caso de Estudio DuocUC</span>
+                <span style={{ fontSize: '13px', backgroundColor: 'rgba(255,255,255,0.2)', padding: '5px 12px', borderRadius: '20px' }}>La salud es importante!</span>
             </div>
 
             {/* CONTENEDOR EN DOS COLUMNAS */}
@@ -117,7 +117,7 @@ export default function DashboardView() {
                             ➕ Agendar Nueva Hora
                         </button>
                         <button onClick={handleTelemedicina} style={{ backgroundColor: '#2ed573', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px', flex: '1', minWidth: '150px' }}>
-                            💻 Ir a Sala Virtual (Tele)
+                            ➕ Historial Citas Medicas
                         </button>
                     </div>
                     
@@ -169,7 +169,7 @@ export default function DashboardView() {
 
             {/* PIE DE PÁGINA */}
             <div style={{ textAlign: 'center', color: '#888', fontSize: '12px', marginTop: '40px' }}>
-                © 2026 Red Norte Salud - Examen Transversal • Duoc UC
+                © 2026 Red Norte Salud
             </div>
         </div>
     );
