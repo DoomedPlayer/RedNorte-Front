@@ -7,7 +7,7 @@ export const useAuthVM = () => {
         password: ''
     });
 
-    // --- ESTADOS PARA EL REGISTRO DE NUEVO PACIENTE ---
+    // --- ESTADOS PARA EL REGISTRO ---
     const [registerData, setRegisterData] = useState({
         rut: '',
         nombre: '',
@@ -21,53 +21,43 @@ export const useAuthVM = () => {
         password: ''
     });
 
-    // --- MANEJADORES DE CAMBIOS (HANDLERS) ---
     const handleLoginChange = (e) => {
         const { name, value } = e.target;
-        setLoginData(prevState => ({
-            ...prevState,
-            [name]: value
-        }));
+        setLoginData(prevState => ({ ...prevState, [name]: value }));
     };
 
     const handleRegisterChange = (e) => {
         const { name, value } = e.target;
-        setRegisterData(prevState => ({
-            ...prevState,
-            [name]: value
-        }));
+        setRegisterData(prevState => ({ ...prevState, [name]: value }));
     };
 
-    // --- ACCIONES ---
-    const loginSubmit = async (e) => {
+    // --- ACCIÓN DE LOGIN (Navegación instantánea y silenciosa para presentación) ---
+    const loginSubmit = async (e, onNavigate) => {
         e.preventDefault();
+        
         if (!loginData.rut || !loginData.password) {
-            alert("Por favor, completa todos los campos del login.");
             return;
         }
-        console.log("Intentando iniciar sesión con:", loginData.rut, loginData.password);
+
+        // Usuario test requerido
+        const usuarioTest = {
+            rut: "12345678-9",
+            password: "password123"
+        };
+
+        // Redirección inmediata sin avisos molestos de localhost
+        if (loginData.rut === usuarioTest.rut && loginData.password === usuarioTest.password) {
+            if (onNavigate) {
+                onNavigate('dashboard');
+            }
+        } else {
+            console.warn("Credenciales incorrectas ingresadas.");
+        }
     };
 
     const registerSubmit = async (e) => {
         e.preventDefault();
-        
-        // Validación estricta y segura
-        if (
-            !registerData.rut || 
-            !registerData.nombre || 
-            !registerData.apellidoPaterno || 
-            !registerData.correo || 
-            !registerData.telefono ||
-            !registerData.contactoEmergenciaNombre ||
-            !registerData.contactoEmergenciaParentesco ||
-            !registerData.contactoEmergenciaTelefono ||
-            !registerData.password
-        ) {
-            alert("Por favor, completa todos los campos obligatorios (*).");
-            return;
-        }
-
-        console.log("Enviando datos de registro esenciales a Spring Boot:", registerData);
+        console.log("Datos enviados al registro:", registerData);
     };
 
     return {

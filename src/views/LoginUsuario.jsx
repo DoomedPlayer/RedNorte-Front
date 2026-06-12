@@ -13,7 +13,8 @@ const LoginUsuario = ({ onNavigate }) => {
                     <p>Portal del Paciente</p>
                 </div>
                 
-                <form style={styles.form} onSubmit={loginSubmit}>
+                {/* MODIFICADO: Ahora pasamos el evento (e) y la función onNavigate al ViewModel */}
+                <form style={styles.form} onSubmit={(e) => loginSubmit(e, onNavigate)}>
                     <div style={styles.inputGroup}>
                         <label style={styles.label}>RUT del Paciente</label>
                         <input 
