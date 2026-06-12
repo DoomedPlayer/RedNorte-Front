@@ -1,21 +1,37 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useDashboardVM } from '../viewmodels/useDashboardVM';
+import { AgendarModal } from '../components/AgendarModal';
 
 export default function DashboardView() {
-    // 1. Consumimos el ViewModel pasando el RUT de prueba
     const { patient, loading, error } = useDashboardVM('12345678-9');
+    
+    // Estado para controlar si la ventana flotante está visible o no
+    const [isModalOpen, setIsModalOpen] = useState(false);
 
-    // 2. Funciones interactivas (Preparadas para conectarse al backend)
+    // Abre el modal al hacer clic en el botón azul
     const handleAgendarHora = () => {
-        alert("Abriendo módulo de agendamiento... (Aquí conectaremos la mutación/petición POST)");
-        // Aquí irá la lógica para insertar una nueva fila en la base de datos
+        setIsModalOpen(true);
+    };
+
+    // Recibe los datos del modal y simula el envío al backend
+    const handleConfirmarReserva = (datosReserva) => {
+        // En el futuro, aquí irá el "await axios.post('http://localhost:8084/api/espera/registrar', payload)"
+        const payloadBackend = {
+            rutPaciente: patient?.rut || '12345678-9',
+            idEspecialidad: datosReserva.idEspecialidad,
+            tipoAtencion: datosReserva.tipoAtencion
+        };
+        
+        console.log("JSON listo para Spring Boot:", payloadBackend);
+        alert("¡Su solicitud ha sido ingresada exitosamente a la lista de espera de RedNorte!");
+        
+        setIsModalOpen(false); // Cierra la ventana tras el éxito
     };
 
     const handleAnularHora = (idCita) => {
         const confirmar = window.confirm(`¿Está seguro de que desea anular la cita médica N° ${idCita}?`);
         if (confirmar) {
             alert("Procesando anulación... (Aquí conectaremos la petición DELETE o PUT)");
-            // Aquí irá la lógica para cambiar el estado o eliminar de la base de datos
         }
     };
 
@@ -36,7 +52,7 @@ export default function DashboardView() {
             <div style={{ color: 'red', textAlign: 'center', padding: '100px', fontFamily: 'sans-serif' }}>
                 <h3>Error de Conexión</h3>
                 <p>{error}</p>
-                <small>Asegúrate de que tu microservicio de Spring Boot en el puerto 8084 esté encendido.</small>
+                <small>Asegúrate de que tu microservicio de Spring Boot esté encendido.</small>
             </div>
         );
     }
@@ -44,6 +60,13 @@ export default function DashboardView() {
     return (
         <div className="dashboard-container" style={{ fontFamily: 'sans-serif', backgroundColor: '#f4f6f9', minHeight: '100vh', padding: '10px 20px 40px 20px' }}>
             
+            {/* Renderizamos la ventana flotante. Solo será visible si isModalOpen es true */}
+            <AgendarModal 
+                isOpen={isModalOpen} 
+                onClose={() => setIsModalOpen(false)} 
+                onConfirm={handleConfirmarReserva} 
+            />
+
             {/* BANNER PRINCIPAL */}
             <div style={{ backgroundColor: '#0056b3', color: 'white', padding: '20px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderRadius: '8px', maxWidth: '1100px', margin: '20px auto' }}>
                 <div style={{ backgroundColor: 'white', color: '#0056b3', padding: '10px', borderRadius: '4px', fontWeight: 'bold' }}>
@@ -64,15 +87,14 @@ export default function DashboardView() {
                         <div style={{ width: '50px', height: '50px', borderRadius: '50%', backgroundColor: '#0056b3', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', fontWeight: 'bold', marginBottom: '15px' }}>
                             {patient?.nombreCompleto?.charAt(0) || 'P'}
                         </div>
-                        <h3 style={{ color: '#333', margin: '0 0 5px 0' }}>{patient?.nombreCompleto}</h3>
-                        <span style={{ color: '#777', fontSize: '13px', display: 'block', marginBottom: '15px' }}>RUT: {patient?.rut}</span>
+                        <h3 style={{ color: '#333', margin: '0 0 5px 0' }}>{patient?.nombreCompleto || 'Pedro Pascal Beger'}</h3>
+                        <span style={{ color: '#777', fontSize: '13px', display: 'block', marginBottom: '15px' }}>RUT: {patient?.rut || '12345678-9'}</span>
                         
                         <div style={{ borderTop: '1px solid #eee', paddingTop: '15px', marginBottom: '15px' }}>
                             <small style={{ color: '#888', fontWeight: 'bold', display: 'block', fontSize: '10px', marginBottom: '3px' }}>CONTACTO DIRECTO</small>
-                            <span style={{ color: '#555', fontSize: '13px' }}>{patient?.correo}</span>
+                            <span style={{ color: '#555', fontSize: '13px' }}>{patient?.correo || 'pedro.pascal@rednorte.cl'}</span>
                         </div>
 
-                        {/* Información de Contacto de Emergencia sugerido */}
                         <div style={{ borderTop: '1px solid #eee', paddingTop: '15px', backgroundColor: '#fff9db', padding: '10px', borderRadius: '6px' }}>
                             <small style={{ color: '#b78103', fontWeight: 'bold', display: 'block', fontSize: '10px', marginBottom: '3px' }}>📞 EN CASO DE EMERGENCIA</small>
                             <span style={{ color: '#333', fontSize: '13px', fontWeight: 'bold', display: 'block' }}>María Carmen (Esposa)</span>
@@ -111,13 +133,13 @@ export default function DashboardView() {
                 {/* COLUMNA DERECHA: ACCIONES, CITAS Y DOCUMENTOS */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                     
-                    {/* BOTONERA ACCIONES RÁPIDAS (Próximamente funcionales) */}
+                    {/* BOTONERA ACCIONES RÁPIDAS */}
                     <div style={{ backgroundColor: 'white', borderRadius: '8px', padding: '20px 30px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
-                        <button onClick={handleAgendarHora} style={{ backgroundColor: '#0056b3', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px', flex: '1', minWidth: '150px' }}>
+                        <button onClick={handleAgendarHora} style={{ backgroundColor: '#0056b3', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px', flex: '1', minWidth: '150px', transition: 'background-color 0.2s' }}>
                             ➕ Agendar Nueva Hora
                         </button>
                         <button onClick={handleTelemedicina} style={{ backgroundColor: '#2ed573', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px', flex: '1', minWidth: '150px' }}>
-                            ➕ Historial Citas Medicas
+                            🎥 Ir a Sala Virtual (Tele)
                         </button>
                     </div>
                     
@@ -141,7 +163,7 @@ export default function DashboardView() {
                         </div>
                     </div>
 
-                    {/* SECCIÓN: DOCUMENTOS CLÍNICOS (Estáticos según lo acordado) */}
+                    {/* SECCIÓN: DOCUMENTOS CLÍNICOS */}
                     <div style={{ backgroundColor: 'white', borderRadius: '8px', padding: '30px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
                         <h3 style={{ margin: '0 0 20px 0', color: '#333' }}>📄 Recetas y Exámenes Disponibles</h3>
                         
