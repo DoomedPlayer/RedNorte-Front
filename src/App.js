@@ -1,24 +1,31 @@
-import logo from './logo.svg';
-import './App.css';
+import React, { useState } from 'react';
+import LoginUsuario from './views/LoginUsuario';
+import RegistroUsuario from './views/RegistroUsuario';
+import DashboardView from './views/DashboardView'; 
 
 function App() {
+  // Estado limpio en JavaScript puro
+  const [currentView, setCurrentView] = useState('login');
+
+  // Función de navegación sin anotaciones de tipo
+  const navigateTo = (view) => {
+    setCurrentView(view);
+  };
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+    <>
+      {currentView === 'login' && (
+        <LoginUsuario onNavigate={navigateTo} />
+      )}
+      
+      {currentView === 'registro' && (
+        <RegistroUsuario onNavigate={navigateTo} />
+      )}
+      
+      {currentView === 'dashboard' && (
+        <DashboardView onNavigate={navigateTo} />
+      )}
+    </>
   );
 }
 
