@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useDashboardVM } from '../viewmodels/useDashboardVM';
 import { AgendarModal } from '../components/AgendarModal';
 
@@ -10,8 +10,58 @@ export default function DashboardView() {
     const [citaAnulada, setCitaAnulada] = useState(false);
     const [activeTab, setActiveTab] = useState('proximas');
 
-    const handleAgendarHora = () => {
-        setIsModalOpen(true);
+    // Estados para edición de perfil
+    const [isEditing, setIsEditing] = useState(false);
+    const [localEditableData, setLocalEditableData] = useState({
+        correo: '',
+        direccion: 'Av. Las Condes 1234, Santiago',
+        telefono: '+56 9 1234 5678',
+        contactoEmergenciaNombre: 'María Carmen (Esposa)',
+        contactoEmergenciaTelefono: '+56 9 8765 4321'
+    });
+
+    // Sincronizar datos iniciales cuando el ViewModel responda
+    useEffect(() => {
+        if (patient) {
+            setLocalEditableData({
+                correo: patient.correo || 'pedro.pascal@rednorte.cl',
+                direccion: patient.direccion || 'Av. Las Condes 1234, Santiago',
+                telefono: patient.telefono || '+56 9 1234 5678',
+                contactoEmergenciaNombre: patient.contactoEmergenciaNombre || 'María Carmen (Esposa)',
+                contactoEmergenciaTelefono: patient.contactoEmergenciaTelefono || '+56 9 8765 4321'
+            });
+        }
+    }, [patient]);
+
+    // Manejador de Cierre de Sesión
+    const handleLogout = () => {
+        const confirmar = window.confirm("¿Está seguro de que desea cerrar su sesión?");
+        if (confirmar) {
+            // Limpieza de credenciales (Ajusta según uses localStorage, cookies o sessionStorage)
+            localStorage.clear();
+            sessionStorage.clear();
+            
+            alert("Sesión cerrada correctamente. Redireccionando...");
+            
+            // Redirección directa al login (o recarga en su defecto para demostración)
+            window.location.href = '/login'; 
+        }
+    };
+
+    // Manejadores de edición
+    const handleInputChange = (e) => {
+        const { name, value } = e.target;
+        setLocalEditableData(prev => ({
+            ...prev,
+            [name]: value
+        }));
+    };
+
+    const handleGuardarPerfil = (e) => {
+        e.preventDefault();
+        setIsEditing(false);
+        console.log("Datos de contacto actualizados:", localEditableData);
+        alert("¡Datos de contacto actualizados localmente con éxito!");
     };
 
     // Conexión real al API Gateway -> Waitlist-Service
@@ -45,7 +95,10 @@ export default function DashboardView() {
         }
     };
 
-    // Lógica para anular la hora desde el botón principal
+    const handleAgendarHora = () => {
+        setIsModalOpen(true);
+    };
+
     const handleAnularHora = (idCita) => {
         if (citaAnulada) {
             alert("Esta cita ya se encuentra anulada.");
@@ -86,39 +139,115 @@ export default function DashboardView() {
                 onConfirm={handleConfirmarReserva} 
             />
 
-            {/* BANNER PRINCIPAL */}
+            {/* BANNER PRINCIPAL CON BOTÓN DE CERRAR SESIÓN */}
             <div style={{ backgroundColor: '#0056b3', color: 'white', padding: '20px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderRadius: '8px', maxWidth: '1100px', margin: '20px auto' }}>
                 <div style={{ backgroundColor: 'white', color: '#0056b3', padding: '10px', borderRadius: '4px', fontWeight: 'bold' }}>
                     🏥 REDNORTE
                 </div>
                 <h1 style={{ margin: 0, fontSize: '24px' }}>Portal del Paciente</h1>
-                <span style={{ fontSize: '13px', backgroundColor: 'rgba(255,255,255,0.2)', padding: '5px 12px', borderRadius: '20px' }}>La salud es importante!</span>
+                
+                {/* REEMPLAZO INTERACTIVO DE "LA SALUD ES IMPORTANTE!" */}
+                <button 
+                    onClick={handleLogout}
+                    style={{ 
+                        fontSize: '13px', 
+                        backgroundColor: '#dc3545', 
+                        color: 'white',
+                        border: 'none',
+                        padding: '8px 16px', 
+                        borderRadius: '20px',
+                        cursor: 'pointer',
+                        fontWeight: 'bold',
+                        transition: 'background-color 0.2s',
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                    }}
+                    onMouseOver={(e) => e.target.style.backgroundColor = '#bd2130'}
+                    onMouseOut={(e) => e.target.style.backgroundColor = '#dc3545'}
+                >
+                    🚪 Cerrar Sesión
+                </button>
             </div>
 
             {/* CONTENEDOR EN DOS COLUMNAS */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(320px, 1fr) 2fr', gap: '20px', maxWidth: '1100px', margin: '0 auto' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(340px, 1fr) 2fr', gap: '20px', maxWidth: '1100px', margin: '0 auto' }}>
                 
-                {/* COLUMNA IZQUIERDA: PERFIL Y LISTA DE ESPERA */}
+                {/* COLUMNA IZQUIERDA: PERFIL INTERACTIVO Y LISTA DE ESPERA */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    
+                    {/* TARJETA DE IDENTIDAD DEL PACIENTE */}
                     <div style={{ backgroundColor: 'white', borderRadius: '8px', padding: '25px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
-                        <div style={{ width: '50px', height: '50px', borderRadius: '50%', backgroundColor: '#0056b3', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', fontWeight: 'bold', marginBottom: '15px' }}>
-                            {patient?.nombreCompleto?.charAt(0) || 'P'}
-                        </div>
-                        <h3 style={{ color: '#333', margin: '0 0 5px 0' }}>{patient?.nombreCompleto || 'Pedro Pascal Balmaceda'}</h3>
-                        <span style={{ color: '#777', fontSize: '13px', display: 'block', marginBottom: '15px' }}>RUT: {patient?.rut || '12345678-9'}</span>
-                        
-                        <div style={{ borderTop: '1px solid #eee', paddingTop: '15px', marginBottom: '15px' }}>
-                            <small style={{ color: '#888', fontWeight: 'bold', display: 'block', fontSize: '10px', marginBottom: '3px' }}>CONTACTO DIRECTO</small>
-                            <span style={{ color: '#555', fontSize: '13px' }}>{patient?.correo || 'pedro.pascal@rednorte.cl'}</span>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                            <div style={{ width: '50px', height: '50px', borderRadius: '50%', backgroundColor: '#0056b3', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', fontWeight: 'bold' }}>
+                                {patient?.nombreCompleto?.charAt(0) || 'P'}
+                            </div>
+                            {!isEditing && (
+                                <button 
+                                    onClick={() => setIsEditing(true)}
+                                    style={{ backgroundColor: '#f1f3f5', color: '#0056b3', border: '1px solid #ced4da', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}
+                                >
+                                    ✏️ Editar Datos
+                                </button>
+                            )}
                         </div>
 
-                        <div style={{ borderTop: '1px solid #eee', paddingTop: '15px', backgroundColor: '#fff9db', padding: '10px', borderRadius: '6px' }}>
-                            <small style={{ color: '#b78103', fontWeight: 'bold', display: 'block', fontSize: '10px', marginBottom: '3px' }}>📞 EN CASO DE EMERGENCIA</small>
-                            <span style={{ color: '#333', fontSize: '13px', fontWeight: 'bold', display: 'block' }}>María Carmen (Esposa)</span>
-                            <span style={{ color: '#555', fontSize: '13px' }}>+56 9 8765 4321</span>
-                        </div>
+                        {isEditing ? (
+                            <form onSubmit={handleGuardarPerfil} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                <div>
+                                    <small style={{ color: '#aaa', fontWeight: 'bold', display: 'block', fontSize: '10px' }}>NOMBRE COMPLETO (BLOQUEADO)</small>
+                                    <input type="text" value={patient?.nombreCompleto || 'Pedro Pascal Balmaceda'} readOnly style={{ width: '100%', padding: '6px', borderRadius: '4px', border: '1px solid #dee2e6', backgroundColor: '#e9ecef', color: '#495057', boxSizing: 'border-box', cursor: 'not-allowed' }} />
+                                </div>
+                                <div>
+                                    <small style={{ color: '#aaa', fontWeight: 'bold', display: 'block', fontSize: '10px' }}>RUT (BLOQUEADO)</small>
+                                    <input type="text" value={patient?.rut || '12345678-9'} readOnly style={{ width: '100%', padding: '6px', borderRadius: '4px', border: '1px solid #dee2e6', backgroundColor: '#e9ecef', color: '#495057', boxSizing: 'border-box', cursor: 'not-allowed' }} />
+                                </div>
+                                <div>
+                                    <small style={{ color: '#0056b3', fontWeight: 'bold', display: 'block', fontSize: '10px' }}>CORREO ELECTRÓNICO</small>
+                                    <input type="email" name="correo" value={localEditableData.correo} onChange={handleInputChange} required style={{ width: '100%', padding: '6px', borderRadius: '4px', border: '1px solid #0056b3', boxSizing: 'border-box' }} />
+                                </div>
+                                <div>
+                                    <small style={{ color: '#0056b3', fontWeight: 'bold', display: 'block', fontSize: '10px' }}>TELÉFONO CONTACTO</small>
+                                    <input type="text" name="telefono" value={localEditableData.telefono} onChange={handleInputChange} required style={{ width: '100%', padding: '6px', borderRadius: '4px', border: '1px solid #0056b3', boxSizing: 'border-box' }} />
+                                </div>
+                                <div>
+                                    <small style={{ color: '#0056b3', fontWeight: 'bold', display: 'block', fontSize: '10px' }}>DIRECCIÓN</small>
+                                    <input type="text" name="direccion" value={localEditableData.direccion} onChange={handleInputChange} required style={{ width: '100%', padding: '6px', borderRadius: '4px', border: '1px solid #0056b3', boxSizing: 'border-box' }} />
+                                </div>
+                                <div style={{ backgroundColor: '#fff9db', padding: '10px', borderRadius: '6px', marginTop: '5px' }}>
+                                    <small style={{ color: '#b78103', fontWeight: 'bold', display: 'block', fontSize: '10px', marginBottom: '4px' }}>🚨 EN CASO DE EMERGENCIA</small>
+                                    <input type="text" name="contactoEmergenciaNombre" placeholder="Nombre Contacto" value={localEditableData.contactoEmergenciaNombre} onChange={handleInputChange} required style={{ width: '100%', padding: '6px', borderRadius: '4px', border: '1px solid #ced4da', marginBottom: '6px', boxSizing: 'border-box' }} />
+                                    <input type="text" name="contactoEmergenciaTelefono" placeholder="Teléfono" value={localEditableData.contactoEmergenciaTelefono} onChange={handleInputChange} required style={{ width: '100%', padding: '6px', borderRadius: '4px', border: '1px solid #ced4da', boxSizing: 'border-box' }} />
+                                </div>
+                                <div style={{ display: 'flex', gap: '10px', marginTop: '8px' }}>
+                                    <button type="submit" style={{ backgroundColor: '#28a745', color: 'white', border: 'none', padding: '8px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', flex: 1 }}>Guardar</button>
+                                    <button type="button" onClick={() => setIsEditing(false)} style={{ backgroundColor: '#747d8c', color: 'white', border: 'none', padding: '8px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', flex: 1 }}>Cancelar</button>
+                                </div>
+                            </form>
+                        ) : (
+                            <>
+                                <h3 style={{ color: '#333', margin: '0 0 5px 0' }}>{patient?.nombreCompleto || 'Pedro Pascal Balmaceda'}</h3>
+                                <span style={{ color: '#777', fontSize: '13px', display: 'block', marginBottom: '15px' }}>RUT: {patient?.rut || '12345678-9'}</span>
+                                
+                                <div style={{ borderTop: '1px solid #eee', paddingTop: '12px', marginBottom: '12px' }}>
+                                    <small style={{ color: '#888', fontWeight: 'bold', display: 'block', fontSize: '10px', marginBottom: '3px' }}>CONTACTO DIRECTO</small>
+                                    <span style={{ color: '#555', fontSize: '13px', display: 'block' }}>📧 {localEditableData.correo || 'pedro.pascal@rednorte.cl'}</span>
+                                    <span style={{ color: '#555', fontSize: '13px', display: 'block', marginTop: '3px' }}>📞 {localEditableData.telefono}</span>
+                                </div>
+
+                                <div style={{ marginBottom: '15px' }}>
+                                    <small style={{ color: '#888', fontWeight: 'bold', display: 'block', fontSize: '10px', marginBottom: '3px' }}>DIRECCIÓN RESIDENCIAL</small>
+                                    <span style={{ color: '#555', fontSize: '13px' }}>🏠 {localEditableData.direccion}</span>
+                                </div>
+
+                                <div style={{ borderTop: '1px solid #eee', paddingTop: '12px', backgroundColor: '#fff9db', padding: '10px', borderRadius: '6px' }}>
+                                    <small style={{ color: '#b78103', fontWeight: 'bold', display: 'block', fontSize: '10px', marginBottom: '3px' }}>📞 EN CASO DE EMERGENCIA</small>
+                                    <span style={{ color: '#333', fontSize: '13px', fontWeight: 'bold', display: 'block' }}>{localEditableData.contactoEmergenciaNombre}</span>
+                                    <span style={{ color: '#555', fontSize: '13px' }}>{localEditableData.contactoEmergenciaTelefono}</span>
+                                </div>
+                            </>
+                        )}
                     </div>
 
+                    {/* SECCIÓN PRIORIDAD SANITARIA */}
                     <div style={{ backgroundColor: 'white', borderRadius: '8px', padding: '25px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
                         <h4 style={{ margin: '0 0 15px 0', color: '#0056b3', borderBottom: '2px solid #f4f6f9', paddingBottom: '8px' }}>📋 Prioridad Sanitaria</h4>
                         <div style={{ marginBottom: '12px' }}>
@@ -142,10 +271,10 @@ export default function DashboardView() {
                     </div>
                 </div>
 
-                {/* COLUMNA DERECHA: ACCIONES Y PESTAÑAS */}
+                {/* COLUMNA DERECHA */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                     
-                    {/* BOTONERA ACCIONES RÁPIDAS MODIFICADA */}
+                    {/* BOTONERA ACCIONES RÁPIDAS */}
                     <div style={{ backgroundColor: 'white', borderRadius: '8px', padding: '20px 30px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
                         <button onClick={handleAgendarHora} style={{ backgroundColor: '#0056b3', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px', flex: '1', minWidth: '150px' }}>
                             ➕ Agendar Nueva Hora
@@ -171,6 +300,7 @@ export default function DashboardView() {
                         </button>
                     </div>
                     
+                    {/* SECCIÓN PESTAÑAS MÉDICAS */}
                     <div style={{ backgroundColor: 'white', borderRadius: '8px', padding: '0', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
                         <div style={{ display: 'flex', borderBottom: '1px solid #eee', backgroundColor: '#f8f9fa' }}>
                             <button 
@@ -206,25 +336,9 @@ export default function DashboardView() {
                                             <h4 style={{ margin: '0 0 5px 0', color: citaAnulada ? '#777' : '#333', textDecoration: citaAnulada ? 'line-through' : 'none' }}>Cardiología - Control</h4>
                                             <p style={{ margin: '3px 0', color: '#666', fontSize: '13px' }}>👨‍⚕️ Dr. Alejandro Sanz</p>
                                             <p style={{ margin: '3px 0', color: '#888', fontSize: '13px' }}>📅 20-05-2026, 10:00 a. m. | 📍 Box A-12</p>
-                                            {citaAnulada && <span style={{ color: '#dc3545', fontSize: '12px', fontWeight: 'bold' }}>CITA ANULADA</span>}
                                         </div>
-                                        
-                                        {/* INDICADOR VISUAL DINÁMICO */}
-                                        <div style={{ 
-                                            backgroundColor: citaAnulada ? '#f8d7da' : '#e8f5e9', 
-                                            padding: '10px 15px', 
-                                            borderRadius: '50%', 
-                                            display: 'flex', 
-                                            justifyContent: 'center', 
-                                            alignItems: 'center', 
-                                            width: '25px', 
-                                            height: '25px' 
-                                        }}>
-                                            {citaAnulada ? (
-                                                <span style={{ color: '#dc3545', fontSize: '20px', fontWeight: 'bold' }} title="Anulada">✖</span>
-                                            ) : (
-                                                <span style={{ color: '#28a745', fontSize: '20px', fontWeight: 'bold' }} title="Confirmada">✔</span>
-                                            )}
+                                        <div style={{ backgroundColor: citaAnulada ? '#f8d7da' : '#e8f5e9', padding: '10px 15px', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', width: '25px', height: '25px' }}>
+                                            {citaAnulada ? <span style={{ color: '#dc3545', fontSize: '20px', fontWeight: 'bold' }}>✖</span> : <span style={{ color: '#28a745', fontSize: '20px', fontWeight: 'bold' }}>✔</span>}
                                         </div>
                                     </div>
                                 </div>
@@ -242,20 +356,12 @@ export default function DashboardView() {
                                             <span style={{ backgroundColor: '#e8f5e9', color: '#28a745', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold' }}>✔ Asistió</span>
                                         </div>
                                     </div>
-                                    <div style={{ backgroundColor: '#fcfcfc', borderRadius: '6px', padding: '15px', borderLeft: '4px solid #dc3545', border: '1px solid #eee' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <div>
-                                                <h4 style={{ margin: '0 0 5px 0', color: '#333', fontSize: '14px' }}>Traumatología - Procedimiento</h4>
-                                                <p style={{ margin: '0', color: '#888', fontSize: '12px' }}>📅 15-11-2025 | Dr. Luis Torres</p>
-                                            </div>
-                                            <span style={{ backgroundColor: '#f8d7da', color: '#dc3545', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold' }}>✖ No Asistió</span>
-                                        </div>
-                                    </div>
                                 </div>
                             )}
                         </div>
                     </div>
 
+                    {/* DOCUMENTOS */}
                     <div style={{ backgroundColor: 'white', borderRadius: '8px', padding: '30px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
                         <h3 style={{ margin: '0 0 20px 0', color: '#333' }}>📄 Recetas y Exámenes Disponibles</h3>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -264,16 +370,7 @@ export default function DashboardView() {
                                     <span style={{ fontWeight: 'bold', display: 'block', fontSize: '13px', color: '#333' }}>Receta Médica Electrónica - Tratamiento Crónico</span>
                                     <small style={{ color: '#aaa' }}>Emitido por Cardiología el 01-06-2026</small>
                                 </div>
-                                <button onClick={() => handleDescargarPDF('Receta Médica - Tratamiento Crónico.pdf')} style={{ color: '#0056b3', fontSize: '12px', fontWeight: 'bold', backgroundColor: '#e8f0fe', border: 'none', padding: '6px 10px', borderRadius: '4px', cursor: 'pointer', transition: 'background-color 0.2s' }}>
-                                    Descargar PDF
-                                </button>
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 15px', border: '1px solid #eee', borderRadius: '6px' }}>
-                                <div>
-                                    <span style={{ fontWeight: 'bold', display: 'block', fontSize: '13px', color: '#333' }}>Resultado de Examen: Hemograma Completo</span>
-                                    <small style={{ color: '#aaa' }}>Laboratorio Clínico RedNorte</small>
-                                </div>
-                                <button onClick={() => handleDescargarPDF('Resultado Examen - Hemograma.pdf')} style={{ color: '#0056b3', fontSize: '12px', fontWeight: 'bold', backgroundColor: '#e8f0fe', border: 'none', padding: '6px 10px', borderRadius: '4px', cursor: 'pointer', transition: 'background-color 0.2s' }}>
+                                <button onClick={() => handleDescargarPDF('Receta.pdf')} style={{ color: '#0056b3', fontSize: '12px', fontWeight: 'bold', backgroundColor: '#e8f0fe', border: 'none', padding: '6px 10px', borderRadius: '4px', cursor: 'pointer' }}>
                                     Descargar PDF
                                 </button>
                             </div>
