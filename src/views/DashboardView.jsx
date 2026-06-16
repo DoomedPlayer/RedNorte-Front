@@ -1,26 +1,66 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useDashboardVM } from '../viewmodels/useDashboardVM';
+import { AgendarModal } from '../components/AgendarModal';
 
 export default function DashboardView() {
-    // 1. Consumimos el ViewModel pasando el RUT de prueba
     const { patient, loading, error } = useDashboardVM('12345678-9');
+    
+    // Estados de la interfaz
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [citaAnulada, setCitaAnulada] = useState(false);
+    const [activeTab, setActiveTab] = useState('proximas');
 
-    // 2. Funciones interactivas (Preparadas para conectarse al backend)
     const handleAgendarHora = () => {
-        alert("Abriendo módulo de agendamiento... (Aquí conectaremos la mutación/petición POST)");
-        // Aquí irá la lógica para insertar una nueva fila en la base de datos
+        setIsModalOpen(true);
     };
 
-    const handleAnularHora = (idCita) => {
-        const confirmar = window.confirm(`¿Está seguro de que desea anular la cita médica N° ${idCita}?`);
-        if (confirmar) {
-            alert("Procesando anulación... (Aquí conectaremos la petición DELETE o PUT)");
-            // Aquí irá la lógica para cambiar el estado o eliminar de la base de datos
+    // Conexión real al API Gateway -> Waitlist-Service
+    const handleConfirmarReserva = async (datosReserva) => {
+        const payloadBackend = {
+            rutPaciente: patient?.rut || '12345678-9',
+            idEspecialidad: datosReserva.idEspecialidad,
+            tipoAtencion: datosReserva.tipoAtencion
+        };
+        
+        try {
+            const response = await fetch('http://localhost:8080/api/espera/registrar', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payloadBackend)
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                console.log("Guardado en BD:", data);
+                alert(`¡Éxito! Su solicitud fue ingresada a la lista de espera.\nPrioridad asignada: Nivel ${data.nivelPrioridad}`);
+                setIsModalOpen(false); 
+            } else {
+                alert("Hubo un problema al registrar la solicitud en el servidor.");
+            }
+        } catch (err) {
+            console.error("Error de conexión:", err);
+            alert("No se pudo conectar con el servidor.");
         }
     };
 
-    const handleTelemedicina = () => {
-        alert("Redirigiendo a la sala virtual de Fonendo / Teams institucional...");
+    // Lógica para anular la hora desde el botón principal
+    const handleAnularHora = (idCita) => {
+        if (citaAnulada) {
+            alert("Esta cita ya se encuentra anulada.");
+            return;
+        }
+
+        const confirmar = window.confirm(`¿Está seguro de que desea anular su próxima cita médica?`);
+        if (confirmar) {
+            setCitaAnulada(true); 
+            alert("La cita ha sido liberada exitosamente.");
+        }
+    };
+
+    const handleDescargarPDF = (nombreDoc) => {
+        alert(`Generando documento seguro: ${nombreDoc}...\nLa descarga comenzará en breve.`);
     };
 
     if (loading) {
@@ -31,19 +71,21 @@ export default function DashboardView() {
         );
     }
 
-    if (error) {
-        return (
-            <div style={{ color: 'red', textAlign: 'center', padding: '100px', fontFamily: 'sans-serif' }}>
-                <h3>Error de Conexión</h3>
-                <p>{error}</p>
-                <small>Asegúrate de que tu microservicio de Spring Boot en el puerto 8084 esté encendido.</small>
-            </div>
-        );
-    }
-
     return (
         <div className="dashboard-container" style={{ fontFamily: 'sans-serif', backgroundColor: '#f4f6f9', minHeight: '100vh', padding: '10px 20px 40px 20px' }}>
             
+            {error && (
+                <div style={{ backgroundColor: '#fff3cd', color: '#856404', padding: '10px', textAlign: 'center', marginBottom: '15px', borderRadius: '4px', fontSize: '14px' }}>
+                    ⚠️ Modo de interfaz: Backend de usuarios no detectado. Se están usando datos de muestra para el diseño.
+                </div>
+            )}
+
+            <AgendarModal 
+                isOpen={isModalOpen} 
+                onClose={() => setIsModalOpen(false)} 
+                onConfirm={handleConfirmarReserva} 
+            />
+
             {/* BANNER PRINCIPAL */}
             <div style={{ backgroundColor: '#0056b3', color: 'white', padding: '20px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderRadius: '8px', maxWidth: '1100px', margin: '20px auto' }}>
                 <div style={{ backgroundColor: 'white', color: '#0056b3', padding: '10px', borderRadius: '4px', fontWeight: 'bold' }}>
@@ -56,23 +98,20 @@ export default function DashboardView() {
             {/* CONTENEDOR EN DOS COLUMNAS */}
             <div style={{ display: 'grid', gridTemplateColumns: 'minmax(320px, 1fr) 2fr', gap: '20px', maxWidth: '1100px', margin: '0 auto' }}>
                 
-                {/* COLUMNA IZQUIERDA: PERFIL, CONTACTO Y LISTA DE ESPERA */}
+                {/* COLUMNA IZQUIERDA: PERFIL Y LISTA DE ESPERA */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                    
-                    {/* Tarjeta de Identidad y Contacto de Emergencia */}
                     <div style={{ backgroundColor: 'white', borderRadius: '8px', padding: '25px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
                         <div style={{ width: '50px', height: '50px', borderRadius: '50%', backgroundColor: '#0056b3', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', fontWeight: 'bold', marginBottom: '15px' }}>
                             {patient?.nombreCompleto?.charAt(0) || 'P'}
                         </div>
-                        <h3 style={{ color: '#333', margin: '0 0 5px 0' }}>{patient?.nombreCompleto}</h3>
-                        <span style={{ color: '#777', fontSize: '13px', display: 'block', marginBottom: '15px' }}>RUT: {patient?.rut}</span>
+                        <h3 style={{ color: '#333', margin: '0 0 5px 0' }}>{patient?.nombreCompleto || 'Pedro Pascal Balmaceda'}</h3>
+                        <span style={{ color: '#777', fontSize: '13px', display: 'block', marginBottom: '15px' }}>RUT: {patient?.rut || '12345678-9'}</span>
                         
                         <div style={{ borderTop: '1px solid #eee', paddingTop: '15px', marginBottom: '15px' }}>
                             <small style={{ color: '#888', fontWeight: 'bold', display: 'block', fontSize: '10px', marginBottom: '3px' }}>CONTACTO DIRECTO</small>
-                            <span style={{ color: '#555', fontSize: '13px' }}>{patient?.correo}</span>
+                            <span style={{ color: '#555', fontSize: '13px' }}>{patient?.correo || 'pedro.pascal@rednorte.cl'}</span>
                         </div>
 
-                        {/* Información de Contacto de Emergencia sugerido */}
                         <div style={{ borderTop: '1px solid #eee', paddingTop: '15px', backgroundColor: '#fff9db', padding: '10px', borderRadius: '6px' }}>
                             <small style={{ color: '#b78103', fontWeight: 'bold', display: 'block', fontSize: '10px', marginBottom: '3px' }}>📞 EN CASO DE EMERGENCIA</small>
                             <span style={{ color: '#333', fontSize: '13px', fontWeight: 'bold', display: 'block' }}>María Carmen (Esposa)</span>
@@ -80,27 +119,22 @@ export default function DashboardView() {
                         </div>
                     </div>
 
-                    {/* Módulo Lista de Espera No Quirúrgica / Garantías GES */}
                     <div style={{ backgroundColor: 'white', borderRadius: '8px', padding: '25px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
                         <h4 style={{ margin: '0 0 15px 0', color: '#0056b3', borderBottom: '2px solid #f4f6f9', paddingBottom: '8px' }}>📋 Prioridad Sanitaria</h4>
-                        
                         <div style={{ marginBottom: '12px' }}>
                             <small style={{ color: '#888', display: 'block', fontSize: '10px', fontWeight: 'bold' }}>ESTADO ACTUAL</small>
                             <span style={{ color: 'white', backgroundColor: '#ff9800', padding: '4px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: 'bold', display: 'inline-block', marginTop: '5px' }}>
                                 {patient?.estadoListaEspera || 'Pendiente de asignación médica'}
                             </span>
                         </div>
-
                         <div style={{ marginBottom: '12px' }}>
                             <small style={{ color: '#888', display: 'block', fontSize: '10px', fontWeight: 'bold' }}>FECHA INGRESO A LISTA</small>
                             <span style={{ color: '#333', fontSize: '13px' }}>14-04-2026</span>
                         </div>
-
                         <div style={{ marginBottom: '12px' }}>
                             <small style={{ color: '#888', display: 'block', fontSize: '10px', fontWeight: 'bold' }}>PRIORIDAD ASIGNADA</small>
                             <span style={{ color: '#d32f2f', fontWeight: 'bold', fontSize: '13px' }}>Media - Alta</span>
                         </div>
-
                         <div style={{ backgroundColor: '#e8f5e9', padding: '8px 12px', borderRadius: '6px', borderLeft: '4px solid #2e7d32' }}>
                             <small style={{ color: '#2e7d32', fontWeight: 'bold', display: 'block', fontSize: '10px' }}>COBERTURA LEGAL</small>
                             <span style={{ color: '#1b5e20', fontSize: '12px', fontWeight: 'bold' }}>Patología bajo Garantía GES/AUGE</span>
@@ -108,58 +142,140 @@ export default function DashboardView() {
                     </div>
                 </div>
 
-                {/* COLUMNA DERECHA: ACCIONES, CITAS Y DOCUMENTOS */}
+                {/* COLUMNA DERECHA: ACCIONES Y PESTAÑAS */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                     
-                    {/* BOTONERA ACCIONES RÁPIDAS (Próximamente funcionales) */}
+                    {/* BOTONERA ACCIONES RÁPIDAS MODIFICADA */}
                     <div style={{ backgroundColor: 'white', borderRadius: '8px', padding: '20px 30px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
                         <button onClick={handleAgendarHora} style={{ backgroundColor: '#0056b3', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px', flex: '1', minWidth: '150px' }}>
                             ➕ Agendar Nueva Hora
                         </button>
-                        <button onClick={handleTelemedicina} style={{ backgroundColor: '#2ed573', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px', flex: '1', minWidth: '150px' }}>
-                            ➕ Historial Citas Medicas
+                        <button 
+                            onClick={() => handleAnularHora(101)} 
+                            style={{ 
+                                backgroundColor: citaAnulada ? '#f8f9fa' : '#dc3545', 
+                                color: citaAnulada ? '#adb5bd' : 'white', 
+                                border: citaAnulada ? '1px solid #dee2e6' : 'none', 
+                                padding: '10px 20px', 
+                                borderRadius: '6px', 
+                                cursor: citaAnulada ? 'not-allowed' : 'pointer', 
+                                fontWeight: 'bold', 
+                                fontSize: '14px', 
+                                flex: '1', 
+                                minWidth: '150px',
+                                transition: '0.2s'
+                            }}
+                            disabled={citaAnulada}
+                        >
+                            ❌ Anular Hora
                         </button>
                     </div>
                     
-                    {/* SECCIÓN: CITAS MÉDICAS PROGRAMADAS */}
-                    <div style={{ backgroundColor: 'white', borderRadius: '8px', padding: '30px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
-                        <h3 style={{ margin: '0 0 20px 0', color: '#333' }}>📅 Próximas Citas Médicas</h3>
-                        
-                        {/* Cita de Ejemplo */}
-                        <div style={{ backgroundColor: '#f8f9fa', borderRadius: '6px', padding: '20px', borderLeft: '4px solid #00a8ff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div>
-                                <h4 style={{ margin: '0 0 5px 0', color: '#333' }}>Cardiología - Control</h4>
-                                <p style={{ margin: '3px 0', color: '#666', fontSize: '13px' }}>👨‍⚕️ Dr. Alejandro Sanz</p>
-                                <p style={{ margin: '3px 0', color: '#888', fontSize: '13px' }}>📅 20-05-2026, 10:00 a. m. | 📍 Box A-12</p>
-                            </div>
+                    <div style={{ backgroundColor: 'white', borderRadius: '8px', padding: '0', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
+                        <div style={{ display: 'flex', borderBottom: '1px solid #eee', backgroundColor: '#f8f9fa' }}>
                             <button 
-                                onClick={() => handleAnularHora(101)} 
-                                style={{ backgroundColor: '#ffebee', color: '#c62828', border: '1px solid #ffcdd2', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}
+                                onClick={() => setActiveTab('proximas')}
+                                style={{ flex: '1', padding: '15px', border: 'none', background: 'none', cursor: 'pointer', fontWeight: 'bold', fontSize: '15px', color: activeTab === 'proximas' ? '#0056b3' : '#777', borderBottom: activeTab === 'proximas' ? '3px solid #0056b3' : '3px solid transparent', transition: 'all 0.2s' }}
                             >
-                                Anular Hora
+                                📅 Próximas Citas
                             </button>
+                            <button 
+                                onClick={() => setActiveTab('historial')}
+                                style={{ flex: '1', padding: '15px', border: 'none', background: 'none', cursor: 'pointer', fontWeight: 'bold', fontSize: '15px', color: activeTab === 'historial' ? '#0056b3' : '#777', borderBottom: activeTab === 'historial' ? '3px solid #0056b3' : '3px solid transparent', transition: 'all 0.2s' }}
+                            >
+                                🗂️ Historial Médico
+                            </button>
+                        </div>
+
+                        <div style={{ padding: '30px' }}>
+                            {activeTab === 'proximas' && (
+                                <div>
+                                    <h3 style={{ margin: '0 0 20px 0', color: '#333' }}>Horas Médicas Programadas</h3>
+                                    <div style={{ 
+                                        backgroundColor: citaAnulada ? '#fcfcfc' : '#f8f9fa', 
+                                        borderRadius: '6px', 
+                                        padding: '20px', 
+                                        borderLeft: citaAnulada ? '4px solid #dc3545' : '4px solid #28a745', 
+                                        display: 'flex', 
+                                        justifyContent: 'space-between', 
+                                        alignItems: 'center', 
+                                        opacity: citaAnulada ? 0.6 : 1,
+                                        border: '1px solid #eee'
+                                    }}>
+                                        <div>
+                                            <h4 style={{ margin: '0 0 5px 0', color: citaAnulada ? '#777' : '#333', textDecoration: citaAnulada ? 'line-through' : 'none' }}>Cardiología - Control</h4>
+                                            <p style={{ margin: '3px 0', color: '#666', fontSize: '13px' }}>👨‍⚕️ Dr. Alejandro Sanz</p>
+                                            <p style={{ margin: '3px 0', color: '#888', fontSize: '13px' }}>📅 20-05-2026, 10:00 a. m. | 📍 Box A-12</p>
+                                            {citaAnulada && <span style={{ color: '#dc3545', fontSize: '12px', fontWeight: 'bold' }}>CITA ANULADA</span>}
+                                        </div>
+                                        
+                                        {/* INDICADOR VISUAL DINÁMICO */}
+                                        <div style={{ 
+                                            backgroundColor: citaAnulada ? '#f8d7da' : '#e8f5e9', 
+                                            padding: '10px 15px', 
+                                            borderRadius: '50%', 
+                                            display: 'flex', 
+                                            justifyContent: 'center', 
+                                            alignItems: 'center', 
+                                            width: '25px', 
+                                            height: '25px' 
+                                        }}>
+                                            {citaAnulada ? (
+                                                <span style={{ color: '#dc3545', fontSize: '20px', fontWeight: 'bold' }} title="Anulada">✖</span>
+                                            ) : (
+                                                <span style={{ color: '#28a745', fontSize: '20px', fontWeight: 'bold' }} title="Confirmada">✔</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {activeTab === 'historial' && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                                    <h3 style={{ margin: '0 0 10px 0', color: '#333' }}>Atenciones Anteriores</h3>
+                                    <div style={{ backgroundColor: '#fcfcfc', borderRadius: '6px', padding: '15px', borderLeft: '4px solid #28a745', border: '1px solid #eee' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <div>
+                                                <h4 style={{ margin: '0 0 5px 0', color: '#333', fontSize: '14px' }}>Medicina General - Evaluación</h4>
+                                                <p style={{ margin: '0', color: '#888', fontSize: '12px' }}>📅 05-02-2026 | Dra. Camila Rojas</p>
+                                            </div>
+                                            <span style={{ backgroundColor: '#e8f5e9', color: '#28a745', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold' }}>✔ Asistió</span>
+                                        </div>
+                                    </div>
+                                    <div style={{ backgroundColor: '#fcfcfc', borderRadius: '6px', padding: '15px', borderLeft: '4px solid #dc3545', border: '1px solid #eee' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <div>
+                                                <h4 style={{ margin: '0 0 5px 0', color: '#333', fontSize: '14px' }}>Traumatología - Procedimiento</h4>
+                                                <p style={{ margin: '0', color: '#888', fontSize: '12px' }}>📅 15-11-2025 | Dr. Luis Torres</p>
+                                            </div>
+                                            <span style={{ backgroundColor: '#f8d7da', color: '#dc3545', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold' }}>✖ No Asistió</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
 
-                    {/* SECCIÓN: DOCUMENTOS CLÍNICOS (Estáticos según lo acordado) */}
                     <div style={{ backgroundColor: 'white', borderRadius: '8px', padding: '30px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
                         <h3 style={{ margin: '0 0 20px 0', color: '#333' }}>📄 Recetas y Exámenes Disponibles</h3>
-                        
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 15px', border: '1px solid #eee', borderRadius: '6px' }}>
                                 <div>
                                     <span style={{ fontWeight: 'bold', display: 'block', fontSize: '13px', color: '#333' }}>Receta Médica Electrónica - Tratamiento Crónico</span>
                                     <small style={{ color: '#aaa' }}>Emitido por Cardiología el 01-06-2026</small>
                                 </div>
-                                <span style={{ color: '#0056b3', fontSize: '12px', fontWeight: 'bold', backgroundColor: '#e8f0fe', padding: '4px 8px', borderRadius: '4px' }}>Estático (PDF)</span>
+                                <button onClick={() => handleDescargarPDF('Receta Médica - Tratamiento Crónico.pdf')} style={{ color: '#0056b3', fontSize: '12px', fontWeight: 'bold', backgroundColor: '#e8f0fe', border: 'none', padding: '6px 10px', borderRadius: '4px', cursor: 'pointer', transition: 'background-color 0.2s' }}>
+                                    Descargar PDF
+                                </button>
                             </div>
-
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 15px', border: '1px solid #eee', borderRadius: '6px' }}>
                                 <div>
                                     <span style={{ fontWeight: 'bold', display: 'block', fontSize: '13px', color: '#333' }}>Resultado de Examen: Hemograma Completo</span>
                                     <small style={{ color: '#aaa' }}>Laboratorio Clínico RedNorte</small>
                                 </div>
-                                <span style={{ color: '#0056b3', fontSize: '12px', fontWeight: 'bold', backgroundColor: '#e8f0fe', padding: '4px 8px', borderRadius: '4px' }}>Estático (PDF)</span>
+                                <button onClick={() => handleDescargarPDF('Resultado Examen - Hemograma.pdf')} style={{ color: '#0056b3', fontSize: '12px', fontWeight: 'bold', backgroundColor: '#e8f0fe', border: 'none', padding: '6px 10px', borderRadius: '4px', cursor: 'pointer', transition: 'background-color 0.2s' }}>
+                                    Descargar PDF
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -167,7 +283,6 @@ export default function DashboardView() {
                 </div>
             </div>
 
-            {/* PIE DE PÁGINA */}
             <div style={{ textAlign: 'center', color: '#888', fontSize: '12px', marginTop: '40px' }}>
                 © 2026 Red Norte Salud
             </div>
