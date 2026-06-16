@@ -3,13 +3,12 @@ import LoginUsuario from './views/LoginUsuario';
 import RegistroUsuario from './views/RegistroUsuario';
 import DashboardView from './views/DashboardView'; 
 import DoctorDashboard from './views/DoctorDashboard';
-import LoginDoctor from './views/LoginDoctor'; // <-- IMPORTAMOS EL LOGIN DEL DOCTOR
+import LoginDoctor from './views/LoginDoctor';
 
 function App() {
-  // Lo dejamos en loginDoctor para que lo pruebes de inmediato
-  const [currentView, setCurrentView] = useState('loginDoctor');
+  // Estado inicial restaurado: La app arranca en el login principal de pacientes
+  const [currentView, setCurrentView] = useState('login');
 
-  // Función de navegación sin anotaciones de tipo
   const navigateTo = (view) => {
     setCurrentView(view);
   };
@@ -32,7 +31,6 @@ function App() {
         <DoctorDashboard onNavigate={navigateTo} />
       )}
 
-      {/* NUEVA RUTA: LOGIN DEL DOCTOR */}
       {currentView === 'loginDoctor' && (
         <LoginDoctor onNavigate={navigateTo} />
       )}

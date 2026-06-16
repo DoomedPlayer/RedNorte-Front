@@ -8,11 +8,8 @@ export default function LoginDoctor({ onNavigate }) {
     const handleLogin = (e) => {
         e.preventDefault();
         
-        // CREDENCIALES DE PRUEBA (Mock)
-        // RUT: 11111111-1
-        // Pass: admin123
-        if (rut === '12345678-9' && password === 'admin123') {
-            onNavigate('doctor'); // Si es correcto, lo enviamos al DoctorDashboard
+        if (rut === '11111111-1' && password === 'admin123') {
+            onNavigate('doctor'); 
         } else {
             setError('Credenciales incorrectas. Por favor, verifique su RUT y contraseña.');
         }
@@ -34,7 +31,7 @@ export default function LoginDoctor({ onNavigate }) {
                     <div style={{ backgroundColor: '#f8d7da', color: '#721c24', padding: '10px', borderRadius: '6px', marginBottom: '20px', fontSize: '13px', textAlign: 'center', border: '1px solid #f5c6cb' }}>
                         {error}
                         <br/>
-                        <small style={{ fontWeight: 'bold' }}>(Pista: 11111111-1 / admin123)</small>
+                        <small style={{ fontWeight: 'bold' }}>(Pista: 12345678-9 / *****)</small>
                     </div>
                 )}
 
@@ -43,7 +40,7 @@ export default function LoginDoctor({ onNavigate }) {
                         <label style={{ display: 'block', marginBottom: '5px', color: '#555', fontSize: '14px', fontWeight: 'bold' }}>RUT Médico</label>
                         <input 
                             type="text" 
-                            placeholder="Ej: 11111111-1"
+                            placeholder="Ej: 12345678-9"
                             value={rut}
                             onChange={(e) => setRut(e.target.value)}
                             style={{ width: '100%', padding: '12px', borderRadius: '6px', border: '1px solid #ccc', fontSize: '14px', boxSizing: 'border-box' }}
