@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import PatientCrudModal from '../components/PatientCrudModal';
+import Swal from 'sweetalert2'; // <-- NUEVA IMPORTACIÓN PARA LAS ALERTAS
 
 export default function DoctorDashboard({ onNavigate }) {
     // Estado local para simular la base de datos
@@ -10,44 +11,73 @@ export default function DoctorDashboard({ onNavigate }) {
         { id: 4, rut: '19283746-K', nombre: 'Francisca Valenzuela', edad: 41, prevision: 'Fonasa A', estado: 'En Tratamiento' }
     ]);
 
-    // Estados para controlar el Modal
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [pacienteSeleccionado, setPacienteSeleccionado] = useState(null);
 
     const handleAbrirCrear = () => {
-        setPacienteSeleccionado(null); // Formulario vacío
+        setPacienteSeleccionado(null); 
         setIsModalOpen(true);
     };
 
     const handleAbrirEditar = (paciente) => {
-        setPacienteSeleccionado(paciente); // Cargar datos del paciente
+        setPacienteSeleccionado(paciente); 
         setIsModalOpen(true);
     };
 
     const handleGuardarPaciente = (data) => {
         if (pacienteSeleccionado) {
-            // ACTUALIZAR (Edit)
+            // ACTUALIZAR (Edit) con Alerta Bonita
             setPacientes(pacientes.map(p => p.id === data.id ? data : p));
-            alert("Ficha clínica actualizada con éxito.");
+            Swal.fire({
+                title: '¡Actualizado!',
+                text: 'Ficha clínica actualizada con éxito.',
+                icon: 'success',
+                confirmButtonColor: '#0056b3'
+            });
         } else {
-            // CREAR (Add)
-            // Validar que el RUT no esté repetido de forma local
+            // CREAR (Add) con validación y Alerta Bonita
             if (pacientes.some(p => p.rut === data.rut)) {
-                alert("Error: Ya existe un paciente registrado con ese RUT.");
+                Swal.fire({
+                    title: 'Error de Registro',
+                    text: 'Ya existe un paciente registrado con ese RUT en el sistema.',
+                    icon: 'error',
+                    confirmButtonColor: '#0056b3'
+                });
                 return;
             }
             setPacientes([...pacientes, data]);
-            alert("Nuevo paciente registrado exitosamente en RedNorte.");
+            Swal.fire({
+                title: '¡Registrado!',
+                text: 'Nuevo paciente registrado exitosamente en RedNorte.',
+                icon: 'success',
+                confirmButtonColor: '#2ed573'
+            });
         }
         setIsModalOpen(false);
     };
 
     const handleEliminarPaciente = (id, nombre) => {
-        const confirmar = window.confirm(`¿Estás seguro de que deseas ELIMINAR permanentemente la ficha clínica de ${nombre}?`);
-        if (confirmar) {
-            setPacientes(pacientes.filter(p => p.id !== id));
-            alert("Registro eliminado correctamente.");
-        }
+        // Alerta de confirmación moderna
+        Swal.fire({
+            title: '¿Estás seguro?',
+            text: `Vas a ELIMINAR permanentemente la ficha clínica de ${nombre}. Esta acción no se puede deshacer.`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#c62828',
+            cancelButtonColor: '#888',
+            confirmButtonText: 'Sí, eliminar registro',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                setPacientes(pacientes.filter(p => p.id !== id));
+                Swal.fire({
+                    title: '¡Eliminado!',
+                    text: 'El registro ha sido borrado del sistema correctamente.',
+                    icon: 'success',
+                    confirmButtonColor: '#0056b3'
+                });
+            }
+        });
     };
 
     return (
