@@ -2,12 +2,13 @@ import React, { useState } from 'react';
 import LoginUsuario from './views/LoginUsuario';
 import RegistroUsuario from './views/RegistroUsuario';
 import DashboardView from './views/DashboardView'; 
+import DoctorDashboard from './views/DoctorDashboard';
+import LoginDoctor from './views/LoginDoctor';
 
 function App() {
-  // Estado limpio en JavaScript puro
+  // Estado inicial restaurado: La app arranca en el login principal de pacientes
   const [currentView, setCurrentView] = useState('login');
 
-  // Función de navegación sin anotaciones de tipo
   const navigateTo = (view) => {
     setCurrentView(view);
   };
@@ -24,6 +25,14 @@ function App() {
       
       {currentView === 'dashboard' && (
         <DashboardView onNavigate={navigateTo} />
+      )}
+
+      {currentView === 'doctor' && (
+        <DoctorDashboard onNavigate={navigateTo} />
+      )}
+
+      {currentView === 'loginDoctor' && (
+        <LoginDoctor onNavigate={navigateTo} />
       )}
     </>
   );

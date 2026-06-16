@@ -56,6 +56,18 @@ const LoginUsuario = ({ onNavigate }) => {
                             Crear Cuenta de Paciente Nuevo
                         </button>
                     </div>
+
+                    {/* NUEVO: Enlace al Portal del Doctor */}
+                    <div style={styles.doctorLoginContainer}>
+                        <p style={styles.doctorText}>¿Eres profesional de la salud?</p>
+                        <button 
+                            type="button"
+                            onClick={() => onNavigate('loginDoctor')}
+                            style={styles.doctorButton}
+                        >
+                            Acceso Equipo Médico
+                        </button>
+                    </div>
                 </form>
             </div>
         </div>
@@ -137,6 +149,27 @@ const styles = {
         fontWeight: 'bold',
         width: '100%',
         fontSize: '15px'
+    },
+    doctorLoginContainer: {
+        textAlign: 'center',
+        marginTop: '10px',
+        borderTop: '1px solid #eee',
+        paddingTop: '15px'
+    },
+    doctorText: {
+        margin: 0,
+        fontSize: '13px',
+        color: '#666'
+    },
+    doctorButton: {
+        background: 'none',
+        border: 'none',
+        color: '#0056b3',
+        fontWeight: 'bold',
+        cursor: 'pointer',
+        marginTop: '5px',
+        fontSize: '14px',
+        textDecoration: 'underline'
     }
 };
 
