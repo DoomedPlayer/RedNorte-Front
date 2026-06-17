@@ -74,12 +74,6 @@ export default function DashboardView() {
     return (
         <div className="dashboard-container" style={{ fontFamily: 'sans-serif', backgroundColor: '#f4f6f9', minHeight: '100vh', padding: '10px 20px 40px 20px' }}>
             
-            {error && (
-                <div style={{ backgroundColor: '#fff3cd', color: '#856404', padding: '10px', textAlign: 'center', marginBottom: '15px', borderRadius: '4px', fontSize: '14px' }}>
-                    ⚠️ Modo de interfaz: Backend de usuarios no detectado. Se están usando datos de muestra para el diseño.
-                </div>
-            )}
-
             <AgendarModal 
                 isOpen={isModalOpen} 
                 onClose={() => setIsModalOpen(false)} 
