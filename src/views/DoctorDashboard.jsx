@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect} from 'react';
+import api from '../api';
 import PatientCrudModal from '../components/PatientCrudModal';
 import Swal from 'sweetalert2';
 
-// Arreglo de bloques horarios de 30 minutos para la jornada laboral
 const HORARIOS_DISPONIBLES = [
     "08:00", "08:30", "09:00", "09:30", "10:00", "10:30", 
     "11:00", "11:30", "12:00", "12:30", "13:00", "13:30", 
@@ -11,57 +11,148 @@ const HORARIOS_DISPONIBLES = [
 ];
 
 export default function DoctorDashboard({ onNavigate }) {
-    // 1. ESTADOS PARA PACIENTES (CRUD)
-    const [pacientes, setPacientes] = useState([
-        { id: 1, rut: '12345678-9', nombre: 'Pedro Pascal Balmaceda', edad: 48, prevision: 'Fonasa B', estado: 'En Tratamiento' },
-        { id: 2, rut: '9876543-2', nombre: 'Mon Laferte', edad: 40, prevision: 'Isapre', estado: 'Alta Médica' },
-        { id: 3, rut: '11223344-5', nombre: 'Alexis Sánchez', edad: 35, prevision: 'Fonasa C', estado: 'Pendiente Exámenes' },
-        { id: 4, rut: '19283746-K', nombre: 'Francisca Valenzuela', edad: 41, prevision: 'Fonasa A', estado: 'En Tratamiento' }
-    ]);
+
+    const [pacientes, setPacientes] = useState([]);
+    const [citas, setCitas] = useState([]);
+    const [loading, setLoading] = useState(true);
+
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [pacienteSeleccionado, setPacienteSeleccionado] = useState(null);
+    const [activeTab, setActiveTab] = useState('horas');
 
-    // 2. ESTADOS PARA HORAS MÉDICAS Y LISTA DE ESPERA
-    const [citas, setCitas] = useState([
-        { id: 101, rut: '12345678-9', paciente: 'Pedro Pascal Balmaceda', fecha: '2026-06-20', hora: '10:00', estado: 'Programada' },
-        { id: 102, rut: '9876543-2', paciente: 'Mon Laferte', fecha: '2026-06-21', hora: '11:30', estado: 'Programada' },
-        { id: 103, rut: '11223344-5', paciente: 'Alexis Sánchez', fecha: '2026-06-22', hora: '09:00', estado: 'Reasignada' },
-        { id: 104, rut: '21886383-3', paciente: 'Donnovan Urrutia', fecha: 'Por asignar', hora: 'Por asignar', estado: 'En Espera' },
-        { id: 105, rut: '19283746-K', paciente: 'Francisca Valenzuela', fecha: 'Por asignar', hora: 'Por asignar', estado: 'Cancelada' }
-    ]);
+    useEffect(() => {
+        const fetchDatosMedicos = async () => {
+            try {
+                const [pacientesResponse, citasResponse] = await Promise.all([
+                    api.get('/api/portal/pacientes'),
+                    api.get('/api/reasignacion/citas')
+                ]);
 
-    // 3. ESTADO DEL MENÚ (TABS)
-    const [activeTab, setActiveTab] = useState('horas'); 
+                const pacientesMapeados = pacientesResponse.data.map(p => ({
+                    id: p.rut, 
+                    rut: p.rut,
+                    nombre: p.nombreCompleto,
+                    edad: "N/A", 
+                    prevision: "Fonasa", 
+                    estado: p.estadoListaEspera
+                }));
 
+                const citasMapeadas = citasResponse.data.map(c => {
+                    const pacienteEncontrado = pacientesMapeados.find(p => p.rut === c.rutPaciente);
+
+                    let fechaSolo = "Por asignar";
+                    let horaSolo = "Por asignar";
+                    
+                    if (c.fechaHora) {
+                        const partes = c.fechaHora.split('T');
+                        fechaSolo = partes[0];
+                        horaSolo = partes[1] ? partes[1].substring(0, 5) : "00:00";
+                    }
+
+                    return {
+                        id: c.id,
+                        rut: c.rutPaciente,
+                        paciente: pacienteEncontrado ? pacienteEncontrado.nombre : 'Paciente Desconocido',
+                        fecha: fechaSolo,
+                        hora: horaSolo,
+                        estado: c.estado || 'Programada'
+                    };
+                });
+
+                setPacientes(pacientesMapeados);
+                setCitas(citasMapeadas);
+
+            } catch (error) {
+                console.error("Error cargando panel médico:", error);
+                Swal.fire('Error', 'No se pudieron cargar los datos del servidor. Verifica que los microservicios estén en línea.', 'error');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchDatosMedicos();
+    }, []);
+
+    if (loading) {
+        return <div style={{ textAlign: 'center', padding: '50px', marginTop: '100px', fontSize: '20px' }}>Cargando Panel Clínico... ⏳</div>;
+    }
     // ==========================================
     // LÓGICA DE PACIENTES (CRUD)
     // ==========================================
     const handleAbrirCrear = () => { setPacienteSeleccionado(null); setIsModalOpen(true); };
     const handleAbrirEditar = (paciente) => { setPacienteSeleccionado(paciente); setIsModalOpen(true); };
 
-    const handleGuardarPaciente = (data) => {
-        if (pacienteSeleccionado) {
-            setPacientes(pacientes.map(p => p.id === data.id ? data : p));
-            Swal.fire({ title: '¡Actualizado!', text: 'Ficha clínica actualizada.', icon: 'success', confirmButtonColor: '#0056b3' });
-        } else {
-            if (pacientes.some(p => p.rut === data.rut)) {
-                Swal.fire({ title: 'Error', text: 'Ya existe este RUT.', icon: 'error', confirmButtonColor: '#0056b3' });
-                return;
+    const handleGuardarPaciente = async (data) => {
+        try {
+            if (pacienteSeleccionado) {
+
+                const payloadEdicion = {
+                    nombre: data.nombre 
+                };
+
+                await api.put(`/api/portal/pacientes/${data.rut}`, payloadEdicion);
+
+                setPacientes(pacientes.map(p => p.id === data.id ? data : p));
+                Swal.fire({ title: '¡Actualizado!', text: 'Ficha clínica actualizada en la base de datos.', icon: 'success', confirmButtonColor: '#0056b3' });
+                
+            } else {
+ 
+                const partesNombre = data.nombre ? data.nombre.split(' ') : ['Paciente', 'Desconocido'];
+                
+                const payloadRegistro = {
+                    rut: data.rut,
+                    nombre: partesNombre[0],
+                    apellidoPaterno: partesNombre[1] || '',
+                    apellidoMaterno: partesNombre[2] || '',
+                    correo: `${data.rut}@rednorte.cl`,
+                    telefono: "000000000",
+                    password: data.rut.substring(0, 4) 
+                };
+
+                await api.post('/api/v1/auth/register', payloadRegistro);
+
+                setPacientes([...pacientes, { ...data, id: data.rut, estado: 'En Tratamiento' }]);
+                
+                Swal.fire({ 
+                    title: '¡Registrado!', 
+                    text: `Paciente ingresado al sistema. Su clave temporal de acceso es: ${payloadRegistro.password}`, 
+                    icon: 'success', 
+                    confirmButtonColor: '#2ed573' 
+                });
             }
-            setPacientes([...pacientes, data]);
-            Swal.fire({ title: '¡Registrado!', text: 'Paciente registrado.', icon: 'success', confirmButtonColor: '#2ed573' });
+            
+            setIsModalOpen(false);
+
+        } catch (error) {
+            console.error("Error al guardar paciente:", error);
+            if (error.response && error.response.status === 400) {
+                Swal.fire('Error', 'Este RUT ya se encuentra registrado en el sistema.', 'error');
+            } else {
+                Swal.fire('Error', 'No se pudo guardar la información en el servidor.', 'error');
+            }
         }
-        setIsModalOpen(false);
     };
 
     const handleEliminarPaciente = (id, nombre) => {
         Swal.fire({
-            title: '¿Estás seguro?', text: `Vas a ELIMINAR a ${nombre}.`, icon: 'warning',
-            showCancelButton: true, confirmButtonColor: '#c62828', cancelButtonColor: '#888', confirmButtonText: 'Sí, eliminar'
-        }).then((result) => {
+            title: '¿Sacar de la lista?', 
+            text: `Vas a retirar a ${nombre} de los registros activos/espera.`, 
+            icon: 'warning',
+            showCancelButton: true, 
+            confirmButtonColor: '#c62828', 
+            cancelButtonColor: '#888', 
+            confirmButtonText: 'Sí, retirar'
+        }).then(async (result) => {
             if (result.isConfirmed) {
-                setPacientes(pacientes.filter(p => p.id !== id));
-                Swal.fire({ title: '¡Eliminado!', text: 'Registro borrado.', icon: 'success', confirmButtonColor: '#0056b3' });
+                try {
+                    await api.delete(`/api/espera/paciente/${id}`);
+
+                    setPacientes(pacientes.filter(p => p.id !== id));
+                    Swal.fire({ title: '¡Retirado!', text: 'El paciente fue sacado de la lista exitosamente.', icon: 'success', confirmButtonColor: '#0056b3' });
+                } catch (error) {
+                    console.error("Error al retirar paciente:", error);
+                    Swal.fire('Error', 'No se pudo retirar al paciente de la lista.', 'error');
+                }
             }
         });
     };
@@ -82,14 +173,12 @@ export default function DoctorDashboard({ onNavigate }) {
             confirmButtonText: 'Guardar Cita',
             cancelButtonText: 'Cancelar',
             confirmButtonColor: '#0056b3',
-            // LÓGICA INTELIGENTE DE HORARIOS
             didOpen: () => {
                 const dateInput = document.getElementById('swal-fecha');
                 const timeSelect = document.getElementById('swal-hora');
 
                 dateInput.addEventListener('change', () => {
                     const selectedDate = dateInput.value;
-                    // Buscamos qué horas ya están tomadas en esa fecha
                     const bookedTimes = citas
                         .filter(c => c.fecha === selectedDate && c.estado !== 'Cancelada' && c.estado !== 'En Espera')
                         .map(c => c.hora);
@@ -101,7 +190,7 @@ export default function DoctorDashboard({ onNavigate }) {
                         opt.value = t;
                         if (bookedTimes.includes(t)) {
                             opt.text = `${t} (Ocupado)`;
-                            opt.disabled = true; // Bloqueamos la hora
+                            opt.disabled = true;
                             opt.style.color = '#dc3545';
                         } else {
                             opt.text = t;
@@ -126,8 +215,34 @@ export default function DoctorDashboard({ onNavigate }) {
                 Swal.fire('Campos incompletos', 'Por favor llena todos los datos y selecciona una hora.', 'error');
                 return;
             }
-            setCitas([...citas, { id: Date.now(), rut, paciente, fecha, hora, estado: 'Programada' }]);
-            Swal.fire('¡Agendada!', 'La hora médica ha sido registrada exitosamente.', 'success');
+
+            const payloadCita = {
+                rutPaciente: rut,
+                especialidadYTipo: "Cardiología - Control", 
+                medico: "Dr. Alejandro Sanz",
+                fechaHora: `${fecha}T${hora}:00`, 
+                lugar: "Box A-12",
+                estado: "Programada"
+            };
+
+            try {
+                const response = await api.post('/api/citas', payloadCita);
+
+                const citaGuardada = response.data;
+                setCitas([...citas, { 
+                    id: citaGuardada.id, 
+                    rut: rut, 
+                    paciente: paciente, 
+                    fecha: fecha, 
+                    hora: hora, 
+                    estado: 'Programada' 
+                }]);
+
+                Swal.fire('¡Agendada!', 'La hora médica ha sido registrada en el sistema exitosamente.', 'success');
+            } catch (error) {
+                console.error("Error al guardar la cita:", error);
+                Swal.fire('Error', 'No se pudo agendar la cita en la base de datos.', 'error');
+            }
         }
     };
 
@@ -150,14 +265,12 @@ export default function DoctorDashboard({ onNavigate }) {
             confirmButtonText: confirmBtnText,
             cancelButtonText: 'Cancelar',
             confirmButtonColor: btnColor,
-            // LÓGICA INTELIGENTE DE HORARIOS (CON PRE-SELECCIÓN)
             didOpen: () => {
                 const dateInput = document.getElementById('swal-fecha-reasignar');
                 const timeSelect = document.getElementById('swal-hora-reasignar');
 
                 const updateTimes = () => {
                     const selectedDate = dateInput.value;
-                    // Evitamos contar la hora actual del paciente que estamos editando como "Ocupada"
                     const bookedTimes = citas
                         .filter(c => c.fecha === selectedDate && c.id !== cita.id && c.estado !== 'Cancelada' && c.estado !== 'En Espera')
                         .map(c => c.hora);
@@ -174,7 +287,6 @@ export default function DoctorDashboard({ onNavigate }) {
                         } else {
                             opt.text = t;
                         }
-                        // Pre-seleccionar la hora si coincide con la cita original
                         if (!necesitaLimpiar && selectedDate === cita.fecha && t === cita.hora) {
                             opt.selected = true;
                         }
@@ -183,7 +295,6 @@ export default function DoctorDashboard({ onNavigate }) {
                 };
 
                 dateInput.addEventListener('change', updateTimes);
-                // Si al abrir ya hay una fecha cargada, actualizamos las horas de inmediato
                 if (dateInput.value) updateTimes(); 
             },
             preConfirm: () => {
@@ -200,8 +311,25 @@ export default function DoctorDashboard({ onNavigate }) {
                 Swal.fire('Error', 'Debes seleccionar una fecha y hora válidas', 'error');
                 return;
             }
-            setCitas(citas.map(c => c.id === cita.id ? { ...c, fecha, hora, estado: isEspera ? 'Programada' : 'Reasignada' } : c));
-            Swal.fire(isEspera ? '¡Asignada!' : '¡Reasignada!', isEspera ? 'El paciente ha salido de la lista de espera.' : 'La nueva fecha y hora han sido guardadas.', 'success');
+            
+            try {
+                const payloadReasignacion = {
+                    rutPaciente: cita.rut,
+                    especialidadYTipo: "Cardiología - Control", 
+                    medico: "Dr. Alejandro Sanz",
+                    fechaHora: `${fecha}T${hora}:00`,
+                    lugar: "Box A-12",
+                    estado: isEspera ? 'Programada' : 'Reasignada'
+                };
+
+                await api.put(`/api/citas/${cita.id}`, payloadReasignacion);
+                
+                setCitas(citas.map(c => c.id === cita.id ? { ...c, fecha, hora, estado: isEspera ? 'Programada' : 'Reasignada' } : c));
+                Swal.fire(isEspera ? '¡Asignada!' : '¡Reasignada!', isEspera ? 'El paciente ha salido de la lista de espera.' : 'La nueva fecha y hora han sido guardadas.', 'success');
+            } catch (error) {
+                console.error("Error al reasignar:", error);
+                Swal.fire('Error', 'No se pudo actualizar la cita en la base de datos.', 'error');
+            }
         }
     };
 
@@ -214,10 +342,17 @@ export default function DoctorDashboard({ onNavigate }) {
             confirmButtonColor: '#dc3545',
             cancelButtonColor: '#888',
             confirmButtonText: 'Sí, cancelar cita'
-        }).then((result) => {
+        }).then(async (result) => {
             if (result.isConfirmed) {
-                setCitas(citas.map(c => c.id === id ? { ...c, estado: 'Cancelada', fecha: 'Por asignar', hora: 'Por asignar' } : c));
-                Swal.fire('¡Cancelada!', 'La hora médica ha sido anulada.', 'success');
+                try {
+                    await api.post(`/api/citas/${id}/cancelar`);
+                    
+                    setCitas(citas.map(c => c.id === id ? { ...c, estado: 'Cancelada', fecha: 'Por asignar', hora: 'Por asignar' } : c));
+                    Swal.fire('¡Cancelada!', 'La hora médica ha sido anulada.', 'success');
+                } catch (error) {
+                    console.error("Error al cancelar:", error);
+                    Swal.fire('Error', 'No se pudo anular la cita en el servidor.', 'error');
+                }
             }
         });
     };

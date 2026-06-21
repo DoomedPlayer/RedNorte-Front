@@ -1,17 +1,33 @@
 import React, { useState } from 'react';
+import api from '../api';
 
 export default function LoginDoctor({ onNavigate }) {
-    const [rut, setRut] = useState('');
+const [rut, setRut] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
 
-    const handleLogin = (e) => {
+    const handleLogin = async (e) => {
         e.preventDefault();
-        
-        if (rut === '11111111-1' && password === 'admin123') {
+        setError(''); 
+
+        if (!rut || !password) {
+            setError('Por favor, complete ambos campos.');
+            return;
+        }
+
+        try {
+            const response = await api.post('/api/v1/auth/login', {
+                rut: rut,
+                password: password
+            });
+
+            localStorage.setItem('jwt_token', response.data.token);
+
             onNavigate('doctor'); 
-        } else {
-            setError('Credenciales incorrectas. Por favor, verifique su RUT y contraseña.');
+
+        } catch (err) {
+            console.error("Error en login médico:", err);
+            setError('Credenciales incorrectas o acceso denegado.');
         }
     };
 

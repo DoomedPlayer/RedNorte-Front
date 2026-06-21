@@ -1,11 +1,15 @@
 import React, { useState } from 'react';
 import { useDashboardVM } from '../viewmodels/useDashboardVM';
 import { AgendarModal } from '../components/AgendarModal';
+import api from '../api';
 
 export default function DashboardView() {
-    const { patient, loading, error } = useDashboardVM('12345678-9');
+    const { dashboardData, loading, error } = useDashboardVM();
     
-    // Estados de la interfaz
+    const patient = dashboardData?.paciente;
+    const listaEspera = dashboardData?.listaEspera;
+    const citas = dashboardData?.citas || [];
+
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [citaAnulada, setCitaAnulada] = useState(false);
     const [activeTab, setActiveTab] = useState('proximas');
@@ -17,28 +21,20 @@ export default function DashboardView() {
     // Conexión real al API Gateway -> Waitlist-Service
     const handleConfirmarReserva = async (datosReserva) => {
         const payloadBackend = {
-            rutPaciente: patient?.rut || '12345678-9',
+            rutPaciente: patient?.rut,
             idEspecialidad: datosReserva.idEspecialidad,
-            tipoAtencion: datosReserva.tipoAtencion
+            tipoAtencion: datosReserva.tipoAtencion,
+            gesAuge: false // O el valor que recojas del formulario
         };
         
         try {
-            const response = await fetch('http://localhost:8080/api/espera/registrar', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(payloadBackend)
-            });
+            const response = await api.post('/api/espera/registrar', payloadBackend);
+            
+            console.log("Guardado en BD:", response.data);
+            alert(`¡Éxito! Solicitud ingresada a la lista de espera.\nPrioridad: Nivel ${response.data.nivelPrioridad}`);
+            setIsModalOpen(false); 
 
-            if (response.ok) {
-                const data = await response.json();
-                console.log("Guardado en BD:", data);
-                alert(`¡Éxito! Su solicitud fue ingresada a la lista de espera.\nPrioridad asignada: Nivel ${data.nivelPrioridad}`);
-                setIsModalOpen(false); 
-            } else {
-                alert("Hubo un problema al registrar la solicitud en el servidor.");
-            }
+            
         } catch (err) {
             console.error("Error de conexión:", err);
             alert("No se pudo conectar con el servidor.");
@@ -115,24 +111,32 @@ export default function DashboardView() {
 
                     <div style={{ backgroundColor: 'white', borderRadius: '8px', padding: '25px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
                         <h4 style={{ margin: '0 0 15px 0', color: '#0056b3', borderBottom: '2px solid #f4f6f9', paddingBottom: '8px' }}>📋 Prioridad Sanitaria</h4>
-                        <div style={{ marginBottom: '12px' }}>
-                            <small style={{ color: '#888', display: 'block', fontSize: '10px', fontWeight: 'bold' }}>ESTADO ACTUAL</small>
-                            <span style={{ color: 'white', backgroundColor: '#ff9800', padding: '4px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: 'bold', display: 'inline-block', marginTop: '5px' }}>
-                                {patient?.estadoListaEspera || 'Pendiente de asignación médica'}
-                            </span>
-                        </div>
-                        <div style={{ marginBottom: '12px' }}>
-                            <small style={{ color: '#888', display: 'block', fontSize: '10px', fontWeight: 'bold' }}>FECHA INGRESO A LISTA</small>
-                            <span style={{ color: '#333', fontSize: '13px' }}>14-04-2026</span>
-                        </div>
-                        <div style={{ marginBottom: '12px' }}>
-                            <small style={{ color: '#888', display: 'block', fontSize: '10px', fontWeight: 'bold' }}>PRIORIDAD ASIGNADA</small>
-                            <span style={{ color: '#d32f2f', fontWeight: 'bold', fontSize: '13px' }}>Media - Alta</span>
-                        </div>
-                        <div style={{ backgroundColor: '#e8f5e9', padding: '8px 12px', borderRadius: '6px', borderLeft: '4px solid #2e7d32' }}>
-                            <small style={{ color: '#2e7d32', fontWeight: 'bold', display: 'block', fontSize: '10px' }}>COBERTURA LEGAL</small>
-                            <span style={{ color: '#1b5e20', fontSize: '12px', fontWeight: 'bold' }}>Patología bajo Garantía GES/AUGE</span>
-                        </div>
+                        {listaEspera && listaEspera.estado !== 'Sin registros' ? (
+                        <>
+                            <div style={{ marginBottom: '12px' }}>
+                                <small>ESTADO ACTUAL</small>
+                                <span>{listaEspera.estado}</span>
+                            </div>
+                            <div style={{ marginBottom: '12px' }}>
+                                <small>FECHA INGRESO A LISTA</small>
+                                <span>{listaEspera.fechaRegistro}</span>
+                            </div>
+                            <div style={{ marginBottom: '12px' }}>
+                                <small>PRIORIDAD ASIGNADA</small>
+                                <span>{listaEspera.prioridad}</span>
+                            </div>
+                            
+                            {/* Renderizado condicional del banner GES/AUGE que configuramos antes */}
+                            {listaEspera.gesAuge && (
+                                <div style={{ backgroundColor: '#e8f5e9', padding: '8px 12px', borderRadius: '6px', borderLeft: '4px solid #2e7d32' }}>
+                                    <small style={{ color: '#2e7d32' }}>COBERTURA LEGAL</small>
+                                    <span style={{ color: '#1b5e20' }}>Patología bajo Garantía GES/AUGE</span>
+                                </div>
+                            )}
+                        </>
+                    ) : (
+                        <p>No se encuentra en lista de espera actualmente.</p>
+                    )}
                     </div>
                 </div>
 

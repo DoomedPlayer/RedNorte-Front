@@ -1,33 +1,34 @@
 import { useState, useEffect } from 'react';
-import { fetchPatientByRut } from '../services/api'; // Ya con la ruta 'services' corregida
+import api from '../api';
 
 export const useDashboardVM = (rut) => {
-    const [patient, setPatient] = useState(null);
+    // Ahora 'dashboardData' contendrá el objeto gigante que armaste en el BFF
+    const [dashboardData, setDashboardData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
     useEffect(() => {
-        const getPatientData = async () => {
+        const getDashboardData = async () => {
             try {
                 setLoading(true);
                 setError(null);
-                const data = await fetchPatientByRut(rut);
-                setPatient(data);
+
+                const response = await api.get('/api/v1/bff/dashboard');
+                
+                setDashboardData(response.data);
             } catch (err) {
-                console.error("Error en el ViewModel:", err);
-                setError(err.message || "No se pudo obtener la información del paciente.");
+                console.error("Error obteniendo datos del BFF:", err);
+                setError("No se pudo cargar su información. Verifique su conexión.");
             } finally {
                 setLoading(false);
             }
         };
 
-        if (rut) {
-            getPatientData();
-        }
-    }, [rut]);
+        getDashboardData();
+    }, []);
 
     return {
-        patient,
+        dashboardData,
         loading,
         error
     };
