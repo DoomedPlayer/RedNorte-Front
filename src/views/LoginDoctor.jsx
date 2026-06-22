@@ -16,12 +16,13 @@ const [rut, setRut] = useState('');
         }
 
         try {
-            const response = await api.post('/api/v1/auth/login', {
+            const response = await api.post('/api/auth/login', {
                 rut: rut,
                 password: password
             });
 
             localStorage.setItem('jwt_token', response.data.token);
+            localStorage.setItem('rut', response.data.rut);
 
             onNavigate('doctor'); 
 

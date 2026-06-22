@@ -4,11 +4,33 @@ import { AgendarModal } from '../components/AgendarModal';
 import api from '../api';
 
 export default function DashboardView() {
-    const { dashboardData, loading, error } = useDashboardVM();
+    const { dashboardData, loading, error, refreshDashboard } = useDashboardVM();
     
-    const patient = dashboardData?.paciente;
-    const listaEspera = dashboardData?.listaEspera;
-    const citas = dashboardData?.citas || [];
+    const patient = {
+        nombreCompleto: dashboardData?.nombreCompleto,
+        rut: dashboardData?.rut,
+        correo: dashboardData?.email,
+        contactoEmergenciaNombre: dashboardData?.contactoEmergenciaNombre,
+        contactoEmergenciaParentesco: dashboardData?.contactoEmergenciaParentesco,
+        contactoEmergenciaTelefono: dashboardData?.contactoEmergenciaTelefono
+    };
+
+    const listaEspera = {
+        estado: dashboardData?.estadoActual,
+        fechaRegistro: dashboardData?.fechaIngresoLista,
+        prioridad: dashboardData?.prioridadAsignada,
+        gesAuge: dashboardData?.tieneCoberturaGesAuge
+    };
+
+    const citas = dashboardData?.proximasCitas || [];
+    const documentos = dashboardData?.recetasYExamenes || [];
+
+    const proximasCitas = citas.filter(c => c.estado !== 'CANCELADA');
+    const historialCitas = citas.filter(c => c.estado === 'CANCELADA' || 
+    c.estado === 'PRESENTE' || 
+    c.estado === 'ASISTIDA' ||
+    c.estado === 'FINALIZADA'
+);
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [citaAnulada, setCitaAnulada] = useState(false);
@@ -24,7 +46,7 @@ export default function DashboardView() {
             rutPaciente: patient?.rut,
             idEspecialidad: datosReserva.idEspecialidad,
             tipoAtencion: datosReserva.tipoAtencion,
-            gesAuge: false // O el valor que recojas del formulario
+            gesAuge: false
         };
         
         try {
@@ -33,7 +55,7 @@ export default function DashboardView() {
             console.log("Guardado en BD:", response.data);
             alert(`¡Éxito! Solicitud ingresada a la lista de espera.\nPrioridad: Nivel ${response.data.nivelPrioridad}`);
             setIsModalOpen(false); 
-
+            // Opcional: Aquí podrías forzar una recarga del dashboard para actualizar la vista
             
         } catch (err) {
             console.error("Error de conexión:", err);
@@ -41,17 +63,23 @@ export default function DashboardView() {
         }
     };
 
-    // Lógica para anular la hora desde el botón principal
-    const handleAnularHora = (idCita) => {
-        if (citaAnulada) {
-            alert("Esta cita ya se encuentra anulada.");
+    const handleAnularHora = async (idCita) => {
+        if (!idCita) {
+            console.error("ID de cita inválido");
             return;
         }
 
-        const confirmar = window.confirm(`¿Está seguro de que desea anular su próxima cita médica?`);
+        const confirmar = window.confirm(`¿Está seguro de que desea anular esta cita?`);
         if (confirmar) {
-            setCitaAnulada(true); 
-            alert("La cita ha sido liberada exitosamente.");
+            try {
+                // Aquí la ruta se construirá correctamente como /api/citas/123/cancelar
+                await api.post(`/api/citas/${idCita}/cancelar`); 
+                alert("Cita anulada exitosamente.");
+                await refreshDashboard();
+            } catch (error) {
+                console.error(error);
+                alert("Error al anular la cita.");
+            }
         }
     };
 
@@ -63,6 +91,14 @@ export default function DashboardView() {
         return (
             <div style={{ textAlign: 'center', padding: '100px', fontFamily: 'sans-serif', color: '#0056b3' }}>
                 <h3>Cargando Portal Clínico RedNorte...</h3>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div style={{ textAlign: 'center', padding: '100px', fontFamily: 'sans-serif', color: 'red' }}>
+                <h3>{error}</h3>
             </div>
         );
     }
@@ -94,19 +130,22 @@ export default function DashboardView() {
                         <div style={{ width: '50px', height: '50px', borderRadius: '50%', backgroundColor: '#0056b3', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', fontWeight: 'bold', marginBottom: '15px' }}>
                             {patient?.nombreCompleto?.charAt(0) || 'P'}
                         </div>
-                        <h3 style={{ color: '#333', margin: '0 0 5px 0' }}>{patient?.nombreCompleto || 'Pedro Pascal Balmaceda'}</h3>
-                        <span style={{ color: '#777', fontSize: '13px', display: 'block', marginBottom: '15px' }}>RUT: {patient?.rut || '12345678-9'}</span>
+                        <h3 style={{ color: '#333', margin: '0 0 5px 0' }}>{patient?.nombreCompleto || 'Usuario sin nombre'}</h3>
+                        <span style={{ color: '#777', fontSize: '13px', display: 'block', marginBottom: '15px' }}>RUT: {patient?.rut || 'Sin RUT'}</span>
                         
                         <div style={{ borderTop: '1px solid #eee', paddingTop: '15px', marginBottom: '15px' }}>
                             <small style={{ color: '#888', fontWeight: 'bold', display: 'block', fontSize: '10px', marginBottom: '3px' }}>CONTACTO DIRECTO</small>
-                            <span style={{ color: '#555', fontSize: '13px' }}>{patient?.correo || 'pedro.pascal@rednorte.cl'}</span>
+                            <span style={{ color: '#555', fontSize: '13px' }}>{patient?.correo || 'Sin correo registrado'}</span>
                         </div>
 
-                        <div style={{ borderTop: '1px solid #eee', paddingTop: '15px', backgroundColor: '#fff9db', padding: '10px', borderRadius: '6px' }}>
-                            <small style={{ color: '#b78103', fontWeight: 'bold', display: 'block', fontSize: '10px', marginBottom: '3px' }}>📞 EN CASO DE EMERGENCIA</small>
-                            <span style={{ color: '#333', fontSize: '13px', fontWeight: 'bold', display: 'block' }}>María Carmen (Esposa)</span>
-                            <span style={{ color: '#555', fontSize: '13px' }}>+56 9 8765 4321</span>
-                        </div>
+                        {/* Datos de emergencia (Si tu backend no los manda aún, no se mostrarán) */}
+                        {patient?.contactoEmergenciaNombre && (
+                            <div style={{ borderTop: '1px solid #eee', paddingTop: '15px', backgroundColor: '#fff9db', padding: '10px', borderRadius: '6px' }}>
+                                <small style={{ color: '#b78103', fontWeight: 'bold', display: 'block', fontSize: '10px', marginBottom: '3px' }}>📞 EN CASO DE EMERGENCIA</small>
+                                <span style={{ color: '#333', fontSize: '13px', fontWeight: 'bold', display: 'block' }}>{patient.contactoEmergenciaNombre} ({patient.contactoEmergenciaParentesco})</span>
+                                <span style={{ color: '#555', fontSize: '13px' }}>{patient.contactoEmergenciaTelefono}</span>
+                            </div>
+                        )}
                     </div>
 
                     <div style={{ backgroundColor: 'white', borderRadius: '8px', padding: '25px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
@@ -115,18 +154,17 @@ export default function DashboardView() {
                         <>
                             <div style={{ marginBottom: '12px' }}>
                                 <small>ESTADO ACTUAL</small>
-                                <span>{listaEspera.estado}</span>
+                                <span style={{ display: 'block', fontWeight: 'bold' }}>{listaEspera.estado || listaEspera.estadoFrontend}</span>
                             </div>
                             <div style={{ marginBottom: '12px' }}>
                                 <small>FECHA INGRESO A LISTA</small>
-                                <span>{listaEspera.fechaRegistro}</span>
+                                <span style={{ display: 'block' }}>{listaEspera.fechaFormateada || listaEspera.fechaRegistro || '-'}</span>
                             </div>
                             <div style={{ marginBottom: '12px' }}>
                                 <small>PRIORIDAD ASIGNADA</small>
-                                <span>{listaEspera.prioridad}</span>
+                                <span style={{ display: 'block' }}>{listaEspera.textoPrioridad || listaEspera.prioridad || '-'}</span>
                             </div>
                             
-                            {/* Renderizado condicional del banner GES/AUGE que configuramos antes */}
                             {listaEspera.gesAuge && (
                                 <div style={{ backgroundColor: '#e8f5e9', padding: '8px 12px', borderRadius: '6px', borderLeft: '4px solid #2e7d32' }}>
                                     <small style={{ color: '#2e7d32' }}>COBERTURA LEGAL</small>
@@ -135,7 +173,7 @@ export default function DashboardView() {
                             )}
                         </>
                     ) : (
-                        <p>No se encuentra en lista de espera actualmente.</p>
+                        <p style={{ color: '#777', fontSize: '14px' }}>No se encuentra en lista de espera actualmente.</p>
                     )}
                     </div>
                 </div>
@@ -147,25 +185,6 @@ export default function DashboardView() {
                     <div style={{ backgroundColor: 'white', borderRadius: '8px', padding: '20px 30px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
                         <button onClick={handleAgendarHora} style={{ backgroundColor: '#0056b3', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px', flex: '1', minWidth: '150px' }}>
                             ➕ Agendar Nueva Hora
-                        </button>
-                        <button 
-                            onClick={() => handleAnularHora(101)} 
-                            style={{ 
-                                backgroundColor: citaAnulada ? '#f8f9fa' : '#dc3545', 
-                                color: citaAnulada ? '#adb5bd' : 'white', 
-                                border: citaAnulada ? '1px solid #dee2e6' : 'none', 
-                                padding: '10px 20px', 
-                                borderRadius: '6px', 
-                                cursor: citaAnulada ? 'not-allowed' : 'pointer', 
-                                fontWeight: 'bold', 
-                                fontSize: '14px', 
-                                flex: '1', 
-                                minWidth: '150px',
-                                transition: '0.2s'
-                            }}
-                            disabled={citaAnulada}
-                        >
-                            ❌ Anular Hora
                         </button>
                     </div>
                     
@@ -189,66 +208,102 @@ export default function DashboardView() {
                             {activeTab === 'proximas' && (
                                 <div>
                                     <h3 style={{ margin: '0 0 20px 0', color: '#333' }}>Horas Médicas Programadas</h3>
-                                    <div style={{ 
-                                        backgroundColor: citaAnulada ? '#fcfcfc' : '#f8f9fa', 
-                                        borderRadius: '6px', 
-                                        padding: '20px', 
-                                        borderLeft: citaAnulada ? '4px solid #dc3545' : '4px solid #28a745', 
-                                        display: 'flex', 
-                                        justifyContent: 'space-between', 
-                                        alignItems: 'center', 
-                                        opacity: citaAnulada ? 0.6 : 1,
-                                        border: '1px solid #eee'
-                                    }}>
-                                        <div>
-                                            <h4 style={{ margin: '0 0 5px 0', color: citaAnulada ? '#777' : '#333', textDecoration: citaAnulada ? 'line-through' : 'none' }}>Cardiología - Control</h4>
-                                            <p style={{ margin: '3px 0', color: '#666', fontSize: '13px' }}>👨‍⚕️ Dr. Alejandro Sanz</p>
-                                            <p style={{ margin: '3px 0', color: '#888', fontSize: '13px' }}>📅 20-05-2026, 10:00 a. m. | 📍 Box A-12</p>
-                                            {citaAnulada && <span style={{ color: '#dc3545', fontSize: '12px', fontWeight: 'bold' }}>CITA ANULADA</span>}
+                                    
+                                    {proximasCitas.length === 0 ? (
+                                        <p style={{ color: '#777' }}>No tienes citas médicas programadas.</p>
+                                    ) : (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                                            {proximasCitas.map((cita) => {
+                                                const isAnulada = cita.estado === 'CANCELADA';
+                                                console.log("DEBUG LISTA ESPERA:", dashboardData?.estadoActual, dashboardData?.prioridadAsignada);
+                                                return (
+                                                    <div key={cita.id} style={{ 
+                                                        backgroundColor: isAnulada ? '#fcfcfc' : '#f8f9fa', 
+                                                        borderRadius: '6px', 
+                                                        padding: '20px', 
+                                                        borderLeft: isAnulada ? '4px solid #dc3545' : '4px solid #28a745', 
+                                                        display: 'flex', 
+                                                        justifyContent: 'space-between', 
+                                                        alignItems: 'center', 
+                                                        opacity: isAnulada ? 0.6 : 1,
+                                                        border: '1px solid #eee'
+                                                    }}>
+                                                        <div>
+                                                            <h4 style={{ margin: '0 0 5px 0', color: isAnulada ? '#777' : '#333', textDecoration: isAnulada ? 'line-through' : 'none' }}>
+                                                                {cita.especialidadYTipo || 'Consulta Especialidad'} 
+                                                            </h4>
+                                                            <p style={{ margin: '3px 0', color: '#666', fontSize: '13px' }}>👨‍⚕️ {cita.medico || 'Médico Asignado'}</p>
+                                                            <p style={{ margin: '3px 0', color: '#888', fontSize: '13px' }}>📅 {cita.fechaHora || cita.fecha} | 📍 {cita.lugar || 'Por confirmar'}</p>
+                                                            {isAnulada && <span style={{ color: '#dc3545', fontSize: '12px', fontWeight: 'bold' }}>CITA ANULADA</span>}
+                                                        </div>
+                                                        
+                                                        {/* INDICADOR VISUAL Y ACCIÓN */}
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                                                            {!isAnulada && (
+                                                                <button 
+                                                                    onClick={() => handleAnularHora(cita.id)}
+                                                                    style={{ backgroundColor: '#dc3545', color: 'white', border: 'none', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}
+                                                                >
+                                                                    Anular
+                                                                </button>
+                                                            )}
+                                                            <div style={{ 
+                                                                backgroundColor: isAnulada ? '#f8d7da' : '#e8f5e9', 
+                                                                padding: '10px', 
+                                                                borderRadius: '50%', 
+                                                                display: 'flex', 
+                                                                justifyContent: 'center', 
+                                                                alignItems: 'center', 
+                                                                width: '25px', 
+                                                                height: '25px' 
+                                                            }}>
+                                                                {isAnulada ? (
+                                                                    <span style={{ color: '#dc3545', fontSize: '16px', fontWeight: 'bold' }} title="Anulada">✖</span>
+                                                                ) : (
+                                                                    <span style={{ color: '#28a745', fontSize: '16px', fontWeight: 'bold' }} title="Confirmada">✔</span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
-                                        
-                                        {/* INDICADOR VISUAL DINÁMICO */}
-                                        <div style={{ 
-                                            backgroundColor: citaAnulada ? '#f8d7da' : '#e8f5e9', 
-                                            padding: '10px 15px', 
-                                            borderRadius: '50%', 
-                                            display: 'flex', 
-                                            justifyContent: 'center', 
-                                            alignItems: 'center', 
-                                            width: '25px', 
-                                            height: '25px' 
-                                        }}>
-                                            {citaAnulada ? (
-                                                <span style={{ color: '#dc3545', fontSize: '20px', fontWeight: 'bold' }} title="Anulada">✖</span>
-                                            ) : (
-                                                <span style={{ color: '#28a745', fontSize: '20px', fontWeight: 'bold' }} title="Confirmada">✔</span>
-                                            )}
-                                        </div>
-                                    </div>
+                                    )}
                                 </div>
                             )}
 
                             {activeTab === 'historial' && (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                                    <h3 style={{ margin: '0 0 10px 0', color: '#333' }}>Atenciones Anteriores</h3>
-                                    <div style={{ backgroundColor: '#fcfcfc', borderRadius: '6px', padding: '15px', borderLeft: '4px solid #28a745', border: '1px solid #eee' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <div>
-                                                <h4 style={{ margin: '0 0 5px 0', color: '#333', fontSize: '14px' }}>Medicina General - Evaluación</h4>
-                                                <p style={{ margin: '0', color: '#888', fontSize: '12px' }}>📅 05-02-2026 | Dra. Camila Rojas</p>
-                                            </div>
-                                            <span style={{ backgroundColor: '#e8f5e9', color: '#28a745', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold' }}>✔ Asistió</span>
+                                <div>
+                                    <h3 style={{ margin: '0 0 20px 0', color: '#333' }}>Historial de Atenciones</h3>
+                                    {historialCitas.length === 0 ? (
+                                        <p style={{ color: '#777' }}>No tienes citas anuladas en tu historial.</p>
+                                    ) : (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                                            {historialCitas.map((cita) => {
+                                                const isPresente = cita.estado === 'PRESENTE' || cita.estado === 'ASISTIDA';
+                                                const colorBorde = isPresente ? '#28a745' : '#dc3545';
+                                                const colorFondo = isPresente ? '#e8f5e9' : '#fff5f5';
+
+                                                return (
+                                                    <div key={cita.id} style={{ backgroundColor: colorFondo, borderLeft: `5px solid ${colorBorde}`, borderRadius: '6px', padding: '15px', display: 'flex', justifyContent: 'space-between' }}>
+                                                        <div>
+                                                            <h4 style={{ margin: '0' }}>{cita.especialidadYTipo}</h4>
+                                                            <p style={{ margin: '3px 0', fontSize: '12px', color: '#666' }}>Fecha: {cita.fechaHora}</p>
+                                                        </div>
+                                                        <span style={{ 
+                                                            color: isPresente ? '#28a745' : '#dc3545', 
+                                                            fontWeight: 'bold', 
+                                                            padding: '5px 10px', 
+                                                            borderRadius: '4px',
+                                                            fontSize: '12px' 
+                                                        }}>
+                                                            {isPresente ? '✔ ATENDIDO' : '✖ CANCELADO'}
+                                                        </span>
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
-                                    </div>
-                                    <div style={{ backgroundColor: '#fcfcfc', borderRadius: '6px', padding: '15px', borderLeft: '4px solid #dc3545', border: '1px solid #eee' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <div>
-                                                <h4 style={{ margin: '0 0 5px 0', color: '#333', fontSize: '14px' }}>Traumatología - Procedimiento</h4>
-                                                <p style={{ margin: '0', color: '#888', fontSize: '12px' }}>📅 15-11-2025 | Dr. Luis Torres</p>
-                                            </div>
-                                            <span style={{ backgroundColor: '#f8d7da', color: '#dc3545', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold' }}>✖ No Asistió</span>
-                                        </div>
-                                    </div>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -257,24 +312,21 @@ export default function DashboardView() {
                     <div style={{ backgroundColor: 'white', borderRadius: '8px', padding: '30px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
                         <h3 style={{ margin: '0 0 20px 0', color: '#333' }}>📄 Recetas y Exámenes Disponibles</h3>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 15px', border: '1px solid #eee', borderRadius: '6px' }}>
-                                <div>
-                                    <span style={{ fontWeight: 'bold', display: 'block', fontSize: '13px', color: '#333' }}>Receta Médica Electrónica - Tratamiento Crónico</span>
-                                    <small style={{ color: '#aaa' }}>Emitido por Cardiología el 01-06-2026</small>
-                                </div>
-                                <button onClick={() => handleDescargarPDF('Receta Médica - Tratamiento Crónico.pdf')} style={{ color: '#0056b3', fontSize: '12px', fontWeight: 'bold', backgroundColor: '#e8f0fe', border: 'none', padding: '6px 10px', borderRadius: '4px', cursor: 'pointer', transition: 'background-color 0.2s' }}>
-                                    Descargar PDF
-                                </button>
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 15px', border: '1px solid #eee', borderRadius: '6px' }}>
-                                <div>
-                                    <span style={{ fontWeight: 'bold', display: 'block', fontSize: '13px', color: '#333' }}>Resultado de Examen: Hemograma Completo</span>
-                                    <small style={{ color: '#aaa' }}>Laboratorio Clínico RedNorte</small>
-                                </div>
-                                <button onClick={() => handleDescargarPDF('Resultado Examen - Hemograma.pdf')} style={{ color: '#0056b3', fontSize: '12px', fontWeight: 'bold', backgroundColor: '#e8f0fe', border: 'none', padding: '6px 10px', borderRadius: '4px', cursor: 'pointer', transition: 'background-color 0.2s' }}>
-                                    Descargar PDF
-                                </button>
-                            </div>
+                            {documentos.length === 0 ? (
+                                <p style={{ color: '#777', fontSize: '14px' }}>No hay documentos registrados para este paciente.</p>
+                            ) : (
+                                documentos.map((doc, idx) => (
+                                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 15px', border: '1px solid #eee', borderRadius: '6px' }}>
+                                        <div>
+                                            <span style={{ fontWeight: 'bold', display: 'block', fontSize: '13px', color: '#333' }}>{doc.tipo} - {doc.descripcion}</span>
+                                            <small style={{ color: '#aaa' }}>{doc.fecha || 'Fecha no disponible'}</small>
+                                        </div>
+                                        <button onClick={() => handleDescargarPDF(`${doc.tipo}.pdf`)} style={{ color: '#0056b3', fontSize: '12px', fontWeight: 'bold', backgroundColor: '#e8f0fe', border: 'none', padding: '6px 10px', borderRadius: '4px', cursor: 'pointer', transition: 'background-color 0.2s' }}>
+                                            Descargar PDF
+                                        </button>
+                                    </div>
+                                ))
+                            )}
                         </div>
                     </div>
 

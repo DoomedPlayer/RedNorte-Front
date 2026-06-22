@@ -60,7 +60,7 @@ export const useAuthVM = () => {
     const registerSubmit = async (e, onNavigate) => {
         e.preventDefault();
         try {
-            await api.post('/api/v1/auth/register', registerData);
+            await api.post('/api/auth/register', registerData);
             
             alert("¡Registro exitoso! Puede iniciar sesión con sus nuevas credenciales.");
 
