@@ -1,34 +1,26 @@
 import { useState, useEffect } from 'react';
-import { fetchPatientByRut } from '../services/api'; // Ya con la ruta 'services' corregida
+import api from '../api';
 
 export const useDashboardVM = (rut) => {
-    const [patient, setPatient] = useState(null);
+    const [dashboardData, setDashboardData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    useEffect(() => {
-        const getPatientData = async () => {
-            try {
-                setLoading(true);
-                setError(null);
-                const data = await fetchPatientByRut(rut);
-                setPatient(data);
-            } catch (err) {
-                console.error("Error en el ViewModel:", err);
-                setError(err.message || "No se pudo obtener la información del paciente.");
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        if (rut) {
-            getPatientData();
+    const fetchData = async () => {
+        try {
+            setLoading(true);
+            const response = await api.get('/api/bff/dashboard');
+            setDashboardData(response.data);
+        } catch (err) {
+            setError("Error al cargar datos.");
+        } finally {
+            setLoading(false);
         }
-    }, [rut]);
-
-    return {
-        patient,
-        loading,
-        error
     };
+
+    useEffect(() => {
+        fetchData();
+    }, []);
+
+    return { dashboardData, loading, error, refreshDashboard: fetchData };
 };

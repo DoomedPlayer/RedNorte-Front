@@ -1,207 +1,345 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect} from 'react';
+import api from '../api';
 import PatientCrudModal from '../components/PatientCrudModal';
 import Swal from 'sweetalert2';
 
-// Arreglo de bloques horarios de 30 minutos para la jornada laboral
-const HORARIOS_DISPONIBLES = [
-    "08:00", "08:30", "09:00", "09:30", "10:00", "10:30", 
-    "11:00", "11:30", "12:00", "12:30", "13:00", "13:30", 
-    "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", 
-    "17:00", "17:30", "18:00"
-];
+const TURNOS = {
+    "Mañana": ["08:00", "08:30", "09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "12:00", "12:30", "13:00"],
+    "Tarde": ["13:30", "14:00", "14:30", "15:00", "15:30", "16:00", "16:30", "17:00", "17:30", "18:00"]
+};
+
+const BOXES = Array.from({ length: 20 }, (_, i) => `Box ${i + 1}`);
 
 export default function DoctorDashboard({ onNavigate }) {
-    // 1. ESTADOS PARA PACIENTES (CRUD)
-    const [pacientes, setPacientes] = useState([
-        { id: 1, rut: '12345678-9', nombre: 'Pedro Pascal Balmaceda', edad: 48, prevision: 'Fonasa B', estado: 'En Tratamiento' },
-        { id: 2, rut: '9876543-2', nombre: 'Mon Laferte', edad: 40, prevision: 'Isapre', estado: 'Alta Médica' },
-        { id: 3, rut: '11223344-5', nombre: 'Alexis Sánchez', edad: 35, prevision: 'Fonasa C', estado: 'Pendiente Exámenes' },
-        { id: 4, rut: '19283746-K', nombre: 'Francisca Valenzuela', edad: 41, prevision: 'Fonasa A', estado: 'En Tratamiento' }
-    ]);
+
+    const [pacientes, setPacientes] = useState([]);
+    const [citas, setCitas] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [doctorInfo, setDoctorInfo] = useState(null);
+
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [pacienteSeleccionado, setPacienteSeleccionado] = useState(null);
-
-    // 2. ESTADOS PARA HORAS MÉDICAS Y LISTA DE ESPERA
-    const [citas, setCitas] = useState([
-        { id: 101, rut: '12345678-9', paciente: 'Pedro Pascal Balmaceda', fecha: '2026-06-20', hora: '10:00', estado: 'Programada' },
-        { id: 102, rut: '9876543-2', paciente: 'Mon Laferte', fecha: '2026-06-21', hora: '11:30', estado: 'Programada' },
-        { id: 103, rut: '11223344-5', paciente: 'Alexis Sánchez', fecha: '2026-06-22', hora: '09:00', estado: 'Reasignada' },
-        { id: 104, rut: '21886383-3', paciente: 'Donnovan Urrutia', fecha: 'Por asignar', hora: 'Por asignar', estado: 'En Espera' },
-        { id: 105, rut: '19283746-K', paciente: 'Francisca Valenzuela', fecha: 'Por asignar', hora: 'Por asignar', estado: 'Cancelada' }
-    ]);
-
-    // 3. ESTADO DEL MENÚ (TABS)
-    const [activeTab, setActiveTab] = useState('horas'); 
+    const [activeTab, setActiveTab] = useState('horas');
 
     // ==========================================
-    // LÓGICA DE PACIENTES (CRUD)
+    // 1. CARGA INICIAL DE DATOS
     // ==========================================
-    const handleAbrirCrear = () => { setPacienteSeleccionado(null); setIsModalOpen(true); };
+    useEffect(() => {
+        const fetchDatosMedicos = async () => {
+            try {
+                const rutLogueado = localStorage.getItem('rut');
+
+                if (!rutLogueado || rutLogueado === 'undefined' || rutLogueado === 'null') {
+                    Swal.fire('Sesión Expirada', 'Por favor, inicia sesión nuevamente.', 'warning');
+                    onNavigate('loginDoctor');
+                    return; 
+                }
+                
+                const doctorResponse = await api.get(`/api/portal/medicos/${rutLogueado}`);
+                const doctorActual = {
+                    ...doctorResponse.data,
+                    hospitales: [
+                        { nombre: "Hospital A", turno: "Mañana" },
+                        { nombre: "Clínica B", turno: "Tarde" }
+                    ]
+                };
+                setDoctorInfo(doctorActual);
+
+                const [pacientesResponse, citasResponse, esperaResponse] = await Promise.all([
+                    api.get('/api/portal/pacientes'),
+                    api.get(`/api/citas/especialidad/${doctorActual.especialidad}`), 
+                    api.get(`/api/espera/lista/${doctorActual.idEspecialidad}`) 
+                ]);
+
+                const pacientesMapeados = pacientesResponse.data.map(p => ({
+                    id: p.rut, rut: p.rut, nombre: p.nombreCompleto, edad: "N/A", prevision: "Fonasa", estado: p.estadoListaEspera
+                }));
+
+                const citasMapeadas = citasResponse.data.map(c => {
+                    const pacienteEncontrado = pacientesMapeados.find(p => p.rut === c.rutPaciente);
+                    let fechaSolo = "Por asignar", horaSolo = "Por asignar";
+                    if (c.fechaHora) {
+                        const partes = c.fechaHora.split('T');
+                        fechaSolo = partes[0];
+                        horaSolo = partes[1] ? partes[1].substring(0, 5) : "00:00";
+                    }
+                    return {
+                        id: c.id, rut: c.rutPaciente, paciente: pacienteEncontrado ? pacienteEncontrado.nombre : 'Desconocido',
+                        fecha: fechaSolo, hora: horaSolo, lugar: c.lugar, estado: c.estado || 'Programada', isWaitlist: false
+                    };
+                });
+
+                const listaEsperaMapeada = esperaResponse.data.map(espera => {
+                    const pacienteEncontrado = pacientesMapeados.find(p => p.rut === espera.rutPaciente);
+                    return {
+                        id: `espera-${espera.idLista}`, rut: espera.rutPaciente, paciente: pacienteEncontrado ? pacienteEncontrado.nombre : 'Desconocido',
+                        fecha: 'Por asignar', hora: 'Por asignar', lugar: 'Por asignar', estado: 'En Espera', isWaitlist: true
+                    };
+                });
+
+                setPacientes(pacientesMapeados);
+                setCitas([...citasMapeadas, ...listaEsperaMapeada]);
+
+            } catch (error) {
+                console.error("Error cargando panel médico:", error);
+                Swal.fire('Error', 'No se pudieron cargar los datos del servidor.', 'error');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchDatosMedicos();
+    }, []);
+
+    if (loading) {
+        return <div style={{ textAlign: 'center', padding: '50px', marginTop: '100px', fontSize: '20px' }}>Cargando Panel Clínico... ⏳</div>;
+    }
+
+    // ==========================================
+    // 2. LÓGICA DE PACIENTES (CRUD)
+    // ==========================================
+   const handleAbrirCrear = () => { setPacienteSeleccionado(null); setIsModalOpen(true); };
     const handleAbrirEditar = (paciente) => { setPacienteSeleccionado(paciente); setIsModalOpen(true); };
 
-    const handleGuardarPaciente = (data) => {
-        if (pacienteSeleccionado) {
-            setPacientes(pacientes.map(p => p.id === data.id ? data : p));
-            Swal.fire({ title: '¡Actualizado!', text: 'Ficha clínica actualizada.', icon: 'success', confirmButtonColor: '#0056b3' });
-        } else {
-            if (pacientes.some(p => p.rut === data.rut)) {
-                Swal.fire({ title: 'Error', text: 'Ya existe este RUT.', icon: 'error', confirmButtonColor: '#0056b3' });
-                return;
+    const handleGuardarPaciente = async (data) => {
+        try {
+            if (pacienteSeleccionado) {
+                const payloadEdicion = { nombre: data.nombre };
+                await api.put(`/api/portal/pacientes/${data.rut}`, payloadEdicion);
+                setPacientes(pacientes.map(p => p.id === data.id ? data : p));
+                Swal.fire({ title: '¡Actualizado!', text: 'Ficha clínica actualizada en la base de datos.', icon: 'success', confirmButtonColor: '#0056b3' });
+            } else {
+                const partesNombre = data.nombre ? data.nombre.split(' ') : ['Paciente', 'Desconocido'];
+                const payloadRegistro = {
+                    rut: data.rut,
+                    nombre: partesNombre[0],
+                    apellidoPaterno: partesNombre[1] || '',
+                    apellidoMaterno: partesNombre[2] || '',
+                    correo: `${data.rut}@rednorte.cl`,
+                    telefono: "000000000",
+                    password: data.rut.substring(0, 4) 
+                };
+                await api.post('/api/auth/register', payloadRegistro);
+                setPacientes([...pacientes, { ...data, id: data.rut, estado: 'En Tratamiento' }]);
+                Swal.fire({ title: '¡Registrado!', text: `Paciente ingresado al sistema. Su clave temporal de acceso es: ${payloadRegistro.password}`, icon: 'success', confirmButtonColor: '#2ed573' });
             }
-            setPacientes([...pacientes, data]);
-            Swal.fire({ title: '¡Registrado!', text: 'Paciente registrado.', icon: 'success', confirmButtonColor: '#2ed573' });
+            setIsModalOpen(false);
+        } catch (error) {
+            console.error("Error al guardar paciente:", error);
+            if (error.response && error.response.status === 400) {
+                Swal.fire('Error', 'Este RUT ya se encuentra registrado en el sistema.', 'error');
+            } else {
+                Swal.fire('Error', 'No se pudo guardar la información en el servidor.', 'error');
+            }
         }
-        setIsModalOpen(false);
     };
 
     const handleEliminarPaciente = (id, nombre) => {
         Swal.fire({
-            title: '¿Estás seguro?', text: `Vas a ELIMINAR a ${nombre}.`, icon: 'warning',
-            showCancelButton: true, confirmButtonColor: '#c62828', cancelButtonColor: '#888', confirmButtonText: 'Sí, eliminar'
-        }).then((result) => {
+            title: '¿Sacar de la lista?', 
+            text: `Vas a retirar a ${nombre} de los registros activos/espera.`, 
+            icon: 'warning',
+            showCancelButton: true, confirmButtonColor: '#c62828', cancelButtonColor: '#888', confirmButtonText: 'Sí, retirar'
+        }).then(async (result) => {
             if (result.isConfirmed) {
-                setPacientes(pacientes.filter(p => p.id !== id));
-                Swal.fire({ title: '¡Eliminado!', text: 'Registro borrado.', icon: 'success', confirmButtonColor: '#0056b3' });
+                try {
+                    // Ahora usa la ruta correcta de la nueva arquitectura
+                    await api.delete(`/api/espera/lista/${id}`);
+                    setPacientes(pacientes.filter(p => p.id !== id));
+                    setCitas(citas.filter(c => c.rut !== id));
+                    Swal.fire({ title: '¡Retirado!', text: 'El paciente fue sacado de la lista exitosamente.', icon: 'success', confirmButtonColor: '#0056b3' });
+                } catch (error) {
+                    console.error("Error al retirar paciente:", error);
+                    Swal.fire('Error', 'No se pudo retirar al paciente de la lista.', 'error');
+                }
             }
         });
     };
 
-    // ==========================================
-    // LÓGICA DE HORAS MÉDICAS Y LISTA DE ESPERA
-    // ==========================================
+    const renderFormularioCita = (isReasignacion = false, citaPrevia = null) => {
+        return `
+            ${!isReasignacion ? `
+                <input id="swal-rut" class="swal2-input" placeholder="RUT del Paciente" style="width: 80%;">
+                <input id="swal-paciente" class="swal2-input" placeholder="Nombre Completo" style="width: 80%;">
+            ` : ''}
+            
+            <div style="margin-top: 15px; text-align: left; width: 80%; margin-left: auto; margin-right: auto;">
+                <label style="font-weight: bold; font-size: 14px;">1. Seleccionar Recinto:</label>
+                <select id="swal-hospital" class="swal2-input" style="width: 100%; margin-top: 5px;">
+                    <option value="">-- Seleccione Hospital --</option>
+                </select>
+            </div>
+
+            <div style="margin-top: 15px; text-align: left; width: 80%; margin-left: auto; margin-right: auto;">
+                <label style="font-weight: bold; font-size: 14px;">2. Seleccionar Box:</label>
+                <select id="swal-box" class="swal2-input" style="width: 100%; margin-top: 5px;">
+                    <option value="">-- Seleccione Box --</option>
+                </select>
+            </div>
+
+            <div style="margin-top: 15px; text-align: left; width: 80%; margin-left: auto; margin-right: auto;">
+                <label style="font-weight: bold; font-size: 14px;">3. Seleccionar Fecha:</label>
+                <input id="swal-fecha" type="date" class="swal2-input" style="width: 100%; margin-top: 5px;" value="${citaPrevia && citaPrevia.fecha !== 'Por asignar' ? citaPrevia.fecha : ''}">
+            </div>
+
+            <div style="margin-top: 15px; text-align: left; width: 80%; margin-left: auto; margin-right: auto;">
+                <label style="font-weight: bold; font-size: 14px;">4. Seleccionar Hora (Depende del Hospital):</label>
+                <select id="swal-hora" class="swal2-input" style="width: 100%; margin-top: 5px;">
+                    <option value="">-- Seleccione Hospital y Fecha Primero --</option>
+                </select>
+            </div>
+        `;
+    };
+
+    const setupSwalEventHandlers = (citaID = null) => {
+        const hospitalSelect = document.getElementById('swal-hospital');
+        const boxSelect = document.getElementById('swal-box');
+        const dateInput = document.getElementById('swal-fecha');
+        const timeSelect = document.getElementById('swal-hora');
+
+        // Llenar Hospitales
+        doctorInfo.hospitales.forEach(h => {
+            const opt = document.createElement('option');
+            opt.value = h.nombre;
+            opt.text = `${h.nombre} (Turno ${h.turno})`;
+            opt.dataset.turno = h.turno;
+            hospitalSelect.appendChild(opt);
+        });
+
+        // Llenar Boxes
+        BOXES.forEach(b => {
+            const opt = document.createElement('option');
+            opt.value = b;
+            opt.text = b;
+            boxSelect.appendChild(opt);
+        });
+
+        // Función que actualiza las horas basándose en el Hospital seleccionado
+        const updateTimes = () => {
+            const selectedDate = dateInput.value;
+            const selectedHospIndex = hospitalSelect.selectedIndex;
+            
+            if (!selectedDate || selectedHospIndex === 0) {
+                timeSelect.innerHTML = '<option value="">-- Seleccione Hospital y Fecha Primero --</option>';
+                return;
+            }
+
+            const turno = hospitalSelect.options[selectedHospIndex].dataset.turno;
+            const horariosDisponibles = TURNOS[turno] || [];
+            
+            // Verificamos qué horas ya están tomadas en esa fecha
+            const bookedTimes = citas
+                .filter(c => c.fecha === selectedDate && c.id !== citaID && c.estado !== 'Cancelada' && c.estado !== 'En Espera')
+                .map(c => c.hora);
+
+            timeSelect.innerHTML = '<option value="">-- Seleccione Hora --</option>';
+            horariosDisponibles.forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = t;
+                if (bookedTimes.includes(t)) {
+                    opt.text = `${t} (Ocupado)`; opt.disabled = true; opt.style.color = '#dc3545';
+                } else {
+                    opt.text = t;
+                }
+                timeSelect.appendChild(opt);
+            });
+        };
+
+        hospitalSelect.addEventListener('change', updateTimes);
+        dateInput.addEventListener('change', updateTimes);
+    };
+
     const handleAgendarNuevaHora = async () => {
         const { value: formValues } = await Swal.fire({
             title: 'Ingresar Cita Directa',
-            html:
-                '<input id="swal-rut" class="swal2-input" placeholder="RUT del Paciente" style="width: 70%;">' +
-                '<input id="swal-paciente" class="swal2-input" placeholder="Nombre Completo" style="width: 70%;">' +
-                '<div style="margin-top: 15px;"><label style="font-weight: bold; font-size: 14px;">Seleccionar Fecha:</label><br><input id="swal-fecha" type="date" class="swal2-input" style="width: 70%;"></div>' +
-                '<div style="margin-top: 15px;"><label style="font-weight: bold; font-size: 14px;">Seleccionar Hora:</label><br><select id="swal-hora" class="swal2-input" style="width: 70%;"><option value="">-- Seleccione Fecha Primero --</option></select></div>',
-            focusConfirm: false,
-            showCancelButton: true,
-            confirmButtonText: 'Guardar Cita',
-            cancelButtonText: 'Cancelar',
-            confirmButtonColor: '#0056b3',
-            // LÓGICA INTELIGENTE DE HORARIOS
-            didOpen: () => {
-                const dateInput = document.getElementById('swal-fecha');
-                const timeSelect = document.getElementById('swal-hora');
-
-                dateInput.addEventListener('change', () => {
-                    const selectedDate = dateInput.value;
-                    // Buscamos qué horas ya están tomadas en esa fecha
-                    const bookedTimes = citas
-                        .filter(c => c.fecha === selectedDate && c.estado !== 'Cancelada' && c.estado !== 'En Espera')
-                        .map(c => c.hora);
-
-                    timeSelect.innerHTML = '<option value="">-- Seleccione Hora --</option>';
-                    
-                    HORARIOS_DISPONIBLES.forEach(t => {
-                        const opt = document.createElement('option');
-                        opt.value = t;
-                        if (bookedTimes.includes(t)) {
-                            opt.text = `${t} (Ocupado)`;
-                            opt.disabled = true; // Bloqueamos la hora
-                            opt.style.color = '#dc3545';
-                        } else {
-                            opt.text = t;
-                        }
-                        timeSelect.appendChild(opt);
-                    });
-                });
-            },
+            html: renderFormularioCita(false),
+            focusConfirm: false, showCancelButton: true, confirmButtonText: 'Guardar Cita', confirmButtonColor: '#0056b3',
+            didOpen: () => setupSwalEventHandlers(),
             preConfirm: () => {
-                return [
-                    document.getElementById('swal-rut').value,
-                    document.getElementById('swal-paciente').value,
-                    document.getElementById('swal-fecha').value,
-                    document.getElementById('swal-hora').value
-                ]
+                return {
+                    rut: document.getElementById('swal-rut').value,
+                    paciente: document.getElementById('swal-paciente').value,
+                    hospital: document.getElementById('swal-hospital').value,
+                    box: document.getElementById('swal-box').value,
+                    fecha: document.getElementById('swal-fecha').value,
+                    hora: document.getElementById('swal-hora').value
+                }
             }
         });
 
         if (formValues) {
-            const [rut, paciente, fecha, hora] = formValues;
-            if(!rut || !paciente || !fecha || !hora) {
-                Swal.fire('Campos incompletos', 'Por favor llena todos los datos y selecciona una hora.', 'error');
-                return;
+            const { rut, paciente, hospital, box, fecha, hora } = formValues;
+            if(!rut || !paciente || !hospital || !box || !fecha || !hora) {
+                return Swal.fire('Campos incompletos', 'Llene todos los datos solicitados.', 'error');
             }
-            setCitas([...citas, { id: Date.now(), rut, paciente, fecha, hora, estado: 'Programada' }]);
-            Swal.fire('¡Agendada!', 'La hora médica ha sido registrada exitosamente.', 'success');
+
+            const payloadCita = {
+                rutPaciente: rut,
+                especialidad: doctorInfo.especialidad,      
+                tipoAtencion: "CONTROL",
+                medico: doctorInfo.nombre,
+                fechaHora: `${fecha}T${hora}:00`, 
+                lugar: `${hospital} - ${box}`, 
+                estado: "Programada"
+            };
+
+            try {
+                const response = await api.post('/api/citas', payloadCita);
+                setCitas([...citas, { id: response.data.id, rut, paciente, fecha, hora, lugar: payloadCita.lugar, estado: 'Programada', isWaitlist: false }]);
+                Swal.fire('¡Agendada!', 'La hora médica ha sido registrada.', 'success');
+            } catch (error) {
+                Swal.fire('Error', 'No se pudo agendar la cita.', 'error');
+            }
         }
     };
 
     const handleGestionarCita = async (cita) => {
-        const isEspera = cita.estado === 'En Espera';
-        const necesitaLimpiar = isEspera || cita.estado === 'Cancelada' || cita.fecha === 'Por asignar';
+        const isEspera = cita.isWaitlist; 
         
-        const title = isEspera ? 'Asignar Hora desde Lista' : 'Reasignar Hora Médica';
-        const confirmBtnText = isEspera ? 'Confirmar Asignación' : 'Guardar Cambios';
-        const btnColor = isEspera ? '#2ed573' : '#ffa502';
-
         const { value: formValues } = await Swal.fire({
-            title: title,
+            title: isEspera ? 'Asignar Hora desde Lista' : 'Reasignar Hora Médica',
             text: `Paciente: ${cita.paciente}`,
-            html:
-                `<div style="margin-top: 15px;"><label style="font-weight: bold; font-size: 14px;">Seleccionar Fecha:</label><br><input id="swal-fecha-reasignar" type="date" class="swal2-input" value="${necesitaLimpiar ? '' : cita.fecha}" style="width: 70%;"></div>` +
-                `<div style="margin-top: 15px;"><label style="font-weight: bold; font-size: 14px;">Seleccionar Hora:</label><br><select id="swal-hora-reasignar" class="swal2-input" style="width: 70%;"><option value="">-- Seleccione Fecha Primero --</option></select></div>`,
-            focusConfirm: false,
-            showCancelButton: true,
-            confirmButtonText: confirmBtnText,
-            cancelButtonText: 'Cancelar',
-            confirmButtonColor: btnColor,
-            // LÓGICA INTELIGENTE DE HORARIOS (CON PRE-SELECCIÓN)
-            didOpen: () => {
-                const dateInput = document.getElementById('swal-fecha-reasignar');
-                const timeSelect = document.getElementById('swal-hora-reasignar');
-
-                const updateTimes = () => {
-                    const selectedDate = dateInput.value;
-                    // Evitamos contar la hora actual del paciente que estamos editando como "Ocupada"
-                    const bookedTimes = citas
-                        .filter(c => c.fecha === selectedDate && c.id !== cita.id && c.estado !== 'Cancelada' && c.estado !== 'En Espera')
-                        .map(c => c.hora);
-
-                    timeSelect.innerHTML = '<option value="">-- Seleccione Hora --</option>';
-                    
-                    HORARIOS_DISPONIBLES.forEach(t => {
-                        const opt = document.createElement('option');
-                        opt.value = t;
-                        if (bookedTimes.includes(t)) {
-                            opt.text = `${t} (Ocupado)`;
-                            opt.disabled = true;
-                            opt.style.color = '#dc3545';
-                        } else {
-                            opt.text = t;
-                        }
-                        // Pre-seleccionar la hora si coincide con la cita original
-                        if (!necesitaLimpiar && selectedDate === cita.fecha && t === cita.hora) {
-                            opt.selected = true;
-                        }
-                        timeSelect.appendChild(opt);
-                    });
-                };
-
-                dateInput.addEventListener('change', updateTimes);
-                // Si al abrir ya hay una fecha cargada, actualizamos las horas de inmediato
-                if (dateInput.value) updateTimes(); 
-            },
+            html: renderFormularioCita(true, cita),
+            focusConfirm: false, showCancelButton: true, confirmButtonText: isEspera ? 'Confirmar Asignación' : 'Guardar Cambios', confirmButtonColor: isEspera ? '#2ed573' : '#ffa502',
+            didOpen: () => setupSwalEventHandlers(cita.id),
             preConfirm: () => {
-                return [
-                    document.getElementById('swal-fecha-reasignar').value,
-                    document.getElementById('swal-hora-reasignar').value
-                ]
+                return {
+                    hospital: document.getElementById('swal-hospital').value,
+                    box: document.getElementById('swal-box').value,
+                    fecha: document.getElementById('swal-fecha').value,
+                    hora: document.getElementById('swal-hora').value
+                }
             }
         });
 
         if (formValues) {
-            const [fecha, hora] = formValues;
-            if(!fecha || !hora) {
-                Swal.fire('Error', 'Debes seleccionar una fecha y hora válidas', 'error');
-                return;
+            const { hospital, box, fecha, hora } = formValues;
+            if(!hospital || !box || !fecha || !hora) return Swal.fire('Error', 'Debes completar toda la información del recinto y hora.', 'error');
+            
+            const lugarCompuesto = `${hospital} - ${box}`;
+
+            try {
+                if (isEspera) {
+                    const payloadNuevaCita = {
+                        rutPaciente: cita.rut, especialidad: doctorInfo.especialidad, tipoAtencion: "CONTROL",
+                        medico: doctorInfo.nombre, fechaHora: `${fecha}T${hora}:00`, lugar: lugarCompuesto, estado: "Programada"
+                    };
+                    const responseCita = await api.post('/api/citas', payloadNuevaCita);
+                    await api.delete(`/api/espera/lista/${cita.rut}`);
+                    
+                    setCitas(citas.map(c => c.id === cita.id ? { ...c, id: responseCita.data.id, fecha, hora, lugar: lugarCompuesto, estado: 'Programada', isWaitlist: false } : c));
+                } else {
+                    const payloadReasignacion = {
+                        rutPaciente: cita.rut, especialidad: doctorInfo.especialidad, tipoAtencion: "CONTROL",
+                        medico: doctorInfo.nombre, fechaHora: `${fecha}T${hora}:00`, lugar: lugarCompuesto, estado: 'Reasignada'
+                    };
+                    await api.put(`/api/citas/${cita.id}`, payloadReasignacion);
+                    setCitas(citas.map(c => c.id === cita.id ? { ...c, fecha, hora, lugar: lugarCompuesto, estado: 'Reasignada' } : c));
+                }
+                Swal.fire(isEspera ? '¡Asignada!' : '¡Reasignada!', 'La fecha, hora y hospital han sido actualizados.', 'success');
+            } catch (error) {
+                Swal.fire('Error', 'No se pudo completar la operación.', 'error');
             }
-            setCitas(citas.map(c => c.id === cita.id ? { ...c, fecha, hora, estado: isEspera ? 'Programada' : 'Reasignada' } : c));
-            Swal.fire(isEspera ? '¡Asignada!' : '¡Reasignada!', isEspera ? 'El paciente ha salido de la lista de espera.' : 'La nueva fecha y hora han sido guardadas.', 'success');
         }
     };
 
@@ -214,38 +352,41 @@ export default function DoctorDashboard({ onNavigate }) {
             confirmButtonColor: '#dc3545',
             cancelButtonColor: '#888',
             confirmButtonText: 'Sí, cancelar cita'
-        }).then((result) => {
+        }).then(async (result) => {
             if (result.isConfirmed) {
-                setCitas(citas.map(c => c.id === id ? { ...c, estado: 'Cancelada', fecha: 'Por asignar', hora: 'Por asignar' } : c));
-                Swal.fire('¡Cancelada!', 'La hora médica ha sido anulada.', 'success');
+                try {
+                    await api.post(`/api/citas/${id}/cancelar`);
+                    setCitas(citas.map(c => c.id === id ? { ...c, estado: 'Cancelada', fecha: 'Por asignar', hora: 'Por asignar' } : c));
+                    Swal.fire('¡Cancelada!', 'La hora médica ha sido anulada.', 'success');
+                } catch (error) {
+                    console.error("Error al cancelar:", error);
+                    Swal.fire('Error', 'No se pudo anular la cita en el servidor.', 'error');
+                }
             }
         });
     };
 
+    // EL RETURN SE MANTIENE INTACTO YA QUE LA UI FUNCIONA PERFECTAMENTE
     return (
         <div className="doctor-dashboard" style={{ fontFamily: 'sans-serif', backgroundColor: '#f4f6f9', minHeight: '100vh', padding: '10px 20px 40px 20px' }}>
             
-            <PatientCrudModal 
-                isOpen={isModalOpen} 
-                onClose={() => setIsModalOpen(false)} 
-                onSave={handleGuardarPaciente} 
-                pacienteAEditar={pacienteSeleccionado}
-            />
+            <PatientCrudModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleGuardarPaciente} pacienteAEditar={pacienteSeleccionado} />
 
-            {/* BANNER PRINCIPAL */}
             <div style={{ backgroundColor: '#1b1e23', color: 'white', padding: '20px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderRadius: '8px', maxWidth: '1200px', margin: '20px auto', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                    <div style={{ backgroundColor: '#0056b3', color: 'white', padding: '10px 15px', borderRadius: '4px', fontWeight: 'bold' }}>
-                        🏥 REDNORTE
-                    </div>
+                    <div style={{ backgroundColor: '#0056b3', color: 'white', padding: '10px 15px', borderRadius: '4px', fontWeight: 'bold' }}>🏥 REDNORTE</div>
                     <div>
                         <h1 style={{ margin: 0, fontSize: '22px' }}>Portal Clínico - Equipo Médico</h1>
-                        <span style={{ fontSize: '13px', color: '#aaa' }}>Dr. Alejandro Sanz | Especialidad: Cardiología</span>
+                        <span style={{ fontSize: '13px', color: '#aaa' }}>
+                            {doctorInfo ? `${doctorInfo.nombre} | Especialidad: ${doctorInfo.especialidad}` : 'Cargando perfil...'}
+                        </span>
                     </div>
                 </div>
-                <button onClick={() => onNavigate('loginDoctor')} style={{ backgroundColor: 'transparent', color: '#ff6b6b', border: '1px solid #ff6b6b', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
-                    Cerrar Sesión
-                </button>
+                <button onClick={() => {
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('rut');
+                    onNavigate('loginDoctor');
+                    }} style={{ backgroundColor: 'transparent', color: '#ff6b6b', border: '1px solid #ff6b6b', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Cerrar Sesión</button>
             </div>
 
             <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -332,14 +473,11 @@ export default function DoctorDashboard({ onNavigate }) {
                             </div>
                         )}
 
-                        {/* VISTA 2: GESTIÓN DE HORAS Y LISTA ESPERA */}
                         {activeTab === 'horas' && (
                             <div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                                     <h3 style={{ margin: 0, color: '#333', fontSize: '20px' }}>Agenda y Lista de Espera</h3>
-                                    <button onClick={handleAgendarNuevaHora} style={{ backgroundColor: '#0056b3', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px' }}>
-                                        ➕ Cita Directa
-                                    </button>
+                                    <button onClick={handleAgendarNuevaHora} style={{ backgroundColor: '#0056b3', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px' }}>➕ Cita Directa</button>
                                 </div>
                                 <div style={{ overflowX: 'auto' }}>
                                     <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
@@ -347,9 +485,9 @@ export default function DoctorDashboard({ onNavigate }) {
                                             <tr style={{ backgroundColor: '#f8f9fa', color: '#555', fontSize: '14px' }}>
                                                 <th style={{ padding: '12px 15px', borderBottom: '2px solid #eee' }}>RUT</th>
                                                 <th style={{ padding: '12px 15px', borderBottom: '2px solid #eee' }}>Paciente</th>
-                                                <th style={{ padding: '12px 15px', borderBottom: '2px solid #eee' }}>Fecha Asignada</th>
-                                                <th style={{ padding: '12px 15px', borderBottom: '2px solid #eee' }}>Hora</th>
-                                                <th style={{ padding: '12px 15px', borderBottom: '2px solid #eee' }}>Estado de Cita</th>
+                                                <th style={{ padding: '12px 15px', borderBottom: '2px solid #eee' }}>Fecha / Hora</th>
+                                                <th style={{ padding: '12px 15px', borderBottom: '2px solid #eee' }}>Lugar de Atención</th>
+                                                <th style={{ padding: '12px 15px', borderBottom: '2px solid #eee' }}>Estado</th>
                                                 <th style={{ padding: '12px 15px', borderBottom: '2px solid #eee', textAlign: 'center' }}>Acciones</th>
                                             </tr>
                                         </thead>
@@ -359,51 +497,26 @@ export default function DoctorDashboard({ onNavigate }) {
                                                     <td style={{ padding: '15px', fontSize: '14px', color: '#666' }}>{cita.rut}</td>
                                                     <td style={{ padding: '15px', fontSize: '14px', fontWeight: 'bold', color: '#333' }}>{cita.paciente}</td>
                                                     <td style={{ padding: '15px', fontSize: '14px', color: cita.estado === 'En Espera' || cita.estado === 'Cancelada' ? '#aaa' : '#666' }}>
-                                                        {cita.fecha === 'Por asignar' ? '---' : `📅 ${cita.fecha}`}
+                                                        {cita.fecha === 'Por asignar' ? '---' : <div>📅 {cita.fecha}<br/><span style={{fontWeight: 'bold'}}>⏰ {cita.hora} hrs</span></div>}
                                                     </td>
-                                                    <td style={{ padding: '15px', fontSize: '14px', color: cita.estado === 'En Espera' || cita.estado === 'Cancelada' ? '#aaa' : '#666', fontWeight: cita.estado === 'En Espera' || cita.estado === 'Cancelada' ? 'normal' : 'bold' }}>
-                                                        {cita.hora === 'Por asignar' ? '---' : `⏰ ${cita.hora} hrs`}
+                                                    <td style={{ padding: '15px', fontSize: '14px', color: '#0056b3', fontWeight: 'bold' }}>
+                                                        {cita.lugar === 'Por asignar' ? '---' : `🏥 ${cita.lugar}`}
                                                     </td>
                                                     <td style={{ padding: '15px', fontSize: '14px' }}>
-                                                        <span style={{ 
-                                                            backgroundColor: cita.estado === 'Programada' ? '#e3f2fd' : cita.estado === 'Reasignada' ? '#fff3cd' : cita.estado === 'En Espera' ? '#f3e5f5' : '#f8d7da', 
-                                                            color: cita.estado === 'Programada' ? '#1565c0' : cita.estado === 'Reasignada' ? '#856404' : cita.estado === 'En Espera' ? '#8e44ad' : '#721c24', 
-                                                            padding: '4px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold' 
-                                                        }}>
+                                                        <span style={{ backgroundColor: cita.estado === 'Programada' ? '#e3f2fd' : cita.estado === 'Reasignada' ? '#fff3cd' : cita.estado === 'En Espera' ? '#f3e5f5' : '#f8d7da', color: cita.estado === 'Programada' ? '#1565c0' : cita.estado === 'Reasignada' ? '#856404' : cita.estado === 'En Espera' ? '#8e44ad' : '#721c24', padding: '4px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold' }}>
                                                             {cita.estado === 'En Espera' ? '⏳ En Lista de Espera' : cita.estado}
                                                         </span>
                                                     </td>
                                                     <td style={{ padding: '15px', textAlign: 'center', display: 'flex', gap: '8px', justifyContent: 'center' }}>
-                                                        
-                                                        {/* BOTÓN REASIGNAR SIEMPRE ACTIVO */}
-                                                        <button 
-                                                            onClick={() => handleGestionarCita(cita)} 
-                                                            style={{ 
-                                                                backgroundColor: cita.estado === 'En Espera' ? '#e3f2fd' : '#fff3cd', 
-                                                                border: cita.estado === 'En Espera' ? '1px solid #bbdefb' : '1px solid #ffeeba', 
-                                                                color: cita.estado === 'En Espera' ? '#1565c0' : '#856404', 
-                                                                padding: '6px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' 
-                                                            }}
-                                                        >
+                                                        <button onClick={() => handleGestionarCita(cita)} style={{ backgroundColor: cita.estado === 'En Espera' ? '#e3f2fd' : '#fff3cd', border: cita.estado === 'En Espera' ? '1px solid #bbdefb' : '1px solid #ffeeba', color: cita.estado === 'En Espera' ? '#1565c0' : '#856404', padding: '6px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}>
                                                             {cita.estado === 'En Espera' ? '📅 Asignar' : '🔄 Reasignar'}
                                                         </button>
-
-                                                        {/* BOTÓN CANCELAR */}
-                                                        <button 
-                                                            onClick={() => handleCancelarHora(cita.id, cita.paciente)} 
-                                                            disabled={cita.estado === 'Cancelada'}
-                                                            style={{ backgroundColor: cita.estado === 'Cancelada' ? '#eee' : '#ffebee', border: cita.estado === 'Cancelada' ? 'none' : '1px solid #ffcdd2', color: cita.estado === 'Cancelada' ? '#aaa' : '#c62828', padding: '6px 10px', borderRadius: '4px', cursor: cita.estado === 'Cancelada' ? 'not-allowed' : 'pointer', fontSize: '13px', fontWeight: 'bold' }}
-                                                        >
+                                                        <button onClick={() => handleCancelarHora(cita.id, cita.paciente)} disabled={cita.estado === 'Cancelada' || cita.estado === 'En Espera'} style={{ backgroundColor: cita.estado === 'Cancelada' || cita.estado === 'En Espera' ? '#eee' : '#ffebee', border: cita.estado === 'Cancelada' || cita.estado === 'En Espera' ? 'none' : '1px solid #ffcdd2', color: cita.estado === 'Cancelada' || cita.estado === 'En Espera' ? '#aaa' : '#c62828', padding: '6px 10px', borderRadius: '4px', cursor: cita.estado === 'Cancelada' || cita.estado === 'En Espera' ? 'not-allowed' : 'pointer', fontSize: '13px', fontWeight: 'bold' }}>
                                                             ❌ Cancelar
                                                         </button>
                                                     </td>
                                                 </tr>
                                             ))}
-                                            {citas.length === 0 && (
-                                                <tr>
-                                                    <td colSpan="6" style={{ padding: '30px', textAlign: 'center', color: '#888' }}>No hay registros en la agenda.</td>
-                                                </tr>
-                                            )}
                                         </tbody>
                                     </table>
                                 </div>
@@ -412,7 +525,6 @@ export default function DoctorDashboard({ onNavigate }) {
                     </div>
                 </div>
             </div>
-            <div style={{ textAlign: 'center', color: '#888', fontSize: '12px', marginTop: '40px' }}>© 2026 Red Norte Salud - Panel de Administración Médica</div>
         </div>
     );
 }

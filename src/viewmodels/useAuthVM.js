@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import api from '../api';
 
 export const useAuthVM = () => {
     // --- ESTADOS PARA EL LOGIN ---
@@ -31,33 +32,45 @@ export const useAuthVM = () => {
         setRegisterData(prevState => ({ ...prevState, [name]: value }));
     };
 
-    // --- ACCIÓN DE LOGIN (Navegación instantánea y silenciosa para presentación) ---
     const loginSubmit = async (e, onNavigate) => {
-        e.preventDefault();
+       e.preventDefault();
         
         if (!loginData.rut || !loginData.password) {
+            alert("Por favor ingrese RUT y contraseña");
             return;
         }
 
-        // Usuario test requerido
-        const usuarioTest = {
-            rut: "12345678-9",
-            password: "password123"
-        };
+        try {
+            const response = await api.post('/api/auth/login', {
+                rut: loginData.rut,
+                password: loginData.password
+            });
 
-        // Redirección inmediata sin avisos molestos de localhost
-        if (loginData.rut === usuarioTest.rut && loginData.password === usuarioTest.password) {
+            localStorage.setItem('jwt_token', response.data.token);
+
             if (onNavigate) {
                 onNavigate('dashboard');
             }
-        } else {
-            console.warn("Credenciales incorrectas ingresadas.");
+        } catch (error) {
+            console.error("Error de autenticación:", error);
+            alert("Credenciales incorrectas o servidor no disponible.");
         }
     };
 
-    const registerSubmit = async (e) => {
+    const registerSubmit = async (e, onNavigate) => {
         e.preventDefault();
-        console.log("Datos enviados al registro:", registerData);
+        try {
+            await api.post('/api/auth/register', registerData);
+            
+            alert("¡Registro exitoso! Puede iniciar sesión con sus nuevas credenciales.");
+
+            if (onNavigate) {
+                onNavigate('login');
+            }
+        } catch (error) {
+            console.error("Error al registrar:", error);
+            alert("Hubo un problema con el registro. Quizás el RUT ya existe.");
+        }
     };
 
     return {
