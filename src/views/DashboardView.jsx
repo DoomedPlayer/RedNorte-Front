@@ -87,6 +87,17 @@ export default function DashboardView() {
         alert(`Generando documento seguro: ${nombreDoc}...\nLa descarga comenzará en breve.`);
     };
 
+    const handleLogout = () => {
+        const confirmar = window.confirm("¿Está seguro de que desea cerrar sesión?");
+        if (confirmar) {
+            localStorage.clear(); 
+            sessionStorage.clear();
+
+            window.location.href = '/login'; 
+        }
+    };
+
+
     if (loading) {
         return (
             <div style={{ textAlign: 'center', padding: '100px', fontFamily: 'sans-serif', color: '#0056b3' }}>
@@ -119,6 +130,28 @@ export default function DashboardView() {
                 </div>
                 <h1 style={{ margin: 0, fontSize: '24px' }}>Portal del Paciente</h1>
                 <span style={{ fontSize: '13px', backgroundColor: 'rgba(255,255,255,0.2)', padding: '5px 12px', borderRadius: '20px' }}>La salud es importante!</span>
+                    {/* Botón de Cerrar Sesión */}
+                <button 
+                    onClick={handleLogout}
+                    style={{ 
+                        backgroundColor: '#dc3545', 
+                        color: 'white', 
+                        border: 'none', 
+                        padding: '8px 15px', 
+                        borderRadius: '6px', 
+                        cursor: 'pointer', 
+                        fontWeight: 'bold', 
+                        fontSize: '13px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '5px',
+                        transition: 'background-color 0.2s' 
+                    }}
+                    onMouseOver={(e) => e.target.style.backgroundColor = '#c82333'}
+                    onMouseOut={(e) => e.target.style.backgroundColor = '#dc3545'}
+                >
+                    🚪 Cerrar Sesión
+                </button>
             </div>
 
             {/* CONTENEDOR EN DOS COLUMNAS */}
@@ -318,8 +351,8 @@ export default function DashboardView() {
                                 documentos.map((doc, idx) => (
                                     <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 15px', border: '1px solid #eee', borderRadius: '6px' }}>
                                         <div>
-                                            <span style={{ fontWeight: 'bold', display: 'block', fontSize: '13px', color: '#333' }}>{doc.tipo} - {doc.descripcion}</span>
-                                            <small style={{ color: '#aaa' }}>{doc.fecha || 'Fecha no disponible'}</small>
+                                            <span style={{ fontWeight: 'bold', display: 'block', fontSize: '13px', color: '#333' }}>{doc.nombreDocumento ||  'Documento sin Nombre'}</span>
+                                            <small style={{ color: '#aaa' }}>{doc.emisorYFecha || 'Fecha no disponible'}</small>
                                         </div>
                                         <button onClick={() => handleDescargarPDF(`${doc.tipo}.pdf`)} style={{ color: '#0056b3', fontSize: '12px', fontWeight: 'bold', backgroundColor: '#e8f0fe', border: 'none', padding: '6px 10px', borderRadius: '4px', cursor: 'pointer', transition: 'background-color 0.2s' }}>
                                             Descargar PDF
