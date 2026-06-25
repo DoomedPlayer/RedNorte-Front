@@ -1,84 +1,160 @@
-# Red Norte - Portal del Paciente 
+# 🏥 Red Norte - Frontend
 
-Este repositorio contiene el código fuente del frontend del Portal del Paciente de Red Norte. Se trata de una aplicación de una sola página basada en React y desarrollada con TypeScript, diseñada para mostrar la información del paciente y sus citas médicas programadas.
+Aplicación web desarrollada con React para el sistema Red Norte. Este proyecto implementa la interfaz de usuario del portal clínico, permitiendo la interacción entre pacientes y profesionales de la salud mediante una experiencia simple e intuitiva.
 
-## Descripción general
+El frontend consume los servicios expuestos por el backend para mostrar información clínica, gestionar usuarios y visualizar la información médica disponible.
 
-La aplicación proporciona una interfaz intuitiva para los pacientes del sistema médico "Red Norte". Recupera y muestra los datos del paciente, incluyendo información personal y una lista de sus citas médicas. El proyecto utiliza una arquitectura frontend moderna con una clara separación de responsabilidades, empleando el patrón ViewModel mediante React Hooks personalizados para la gestión del estado y la lógica de negocio.
+---
 
-### Características principales
-* **Panel del paciente**: Muestra el nombre completo del paciente, el RUT y la información de contacto.
-* **Lista de citas**: Muestra todas las citas programadas del paciente.
+## Características
 
-* **Detalles de la cita**: Cada ficha de cita muestra la especialidad médica, la fecha, la hora, la ubicación (`Box`) y el estado actual (p. ej., PROGRAMADA).
+Entre las principales funcionalidades implementadas se encuentran:
 
-* **Diseño adaptable**: Una interfaz de usuario limpia y profesional, diseñada para un portal médico.
+- Inicio de sesión para pacientes y médicos.
+- Registro de nuevos usuarios.
+- Panel principal del paciente.
+- Panel de trabajo para médicos.
+- Visualización de citas médicas.
+- Agendamiento de nuevas horas mediante ventana modal.
+- Consulta del historial y documentos médicos.
+- Consumo de servicios REST para obtener información desde el backend.
+- Soporte para datos de ejemplo cuando los servicios no están disponibles.
+
+---
 
 ## Tecnologías utilizadas
-* **Framework**: React
-* **Lenguaje**: TypeScript y JavaScript
-* **Configuración del proyecto**: Create React App
-* **Arquitectura**: La aplicación sigue una arquitectura basada en componentes con un patrón ViewModel. Se utilizan hooks personalizados (p. ej., `useHospitalViewModel`) para gestionar el estado y la lógica de las vistas.
 
-* **Estilo**: CSS personalizado con variables para un tema consistente (`RedNorte.css`).
+| Tecnología | Uso |
+|------------|-----|
+| React 19 | Desarrollo de la interfaz |
+| JavaScript | Lógica de la aplicación |
+| CSS3 | Diseño y estilos |
+| Fetch API | Consumo de servicios REST |
+| SweetAlert2 | Alertas y mensajes interactivos |
+| Create React App | Configuración del proyecto |
 
-## Estructura del proyecto
-El código fuente está organizado para mantener una clara separación de responsabilidades:
+---
 
-```
+## Arquitectura
+
+La aplicación sigue una organización inspirada en el patrón **MVVM (Model - View - ViewModel)**.
+
+Cada capa posee una responsabilidad específica:
+
+- **Views:** representan las pantallas visibles para el usuario.
+- **Components:** contienen componentes reutilizables utilizados por distintas vistas.
+- **ViewModels:** administran el estado de la aplicación y la comunicación con los servicios.
+- **Services:** encapsulan las llamadas HTTP hacia el backend.
+- **Models:** definen las estructuras de datos utilizadas dentro de la aplicación.
+
+Esta distribución facilita el mantenimiento del código y evita mezclar la lógica de negocio con la presentación.
+
+---
+
+## Organización del proyecto
+
+```text
 src/
-├── components/ # Componentes reutilizables de React (CitaCard, PacienteInfo)
-├── models/ # Interfaces TypeScript para estructuras de datos (Paciente, Cita)
-├── viewmodels/ # Hooks personalizados que actúan como ViewModels para el estado y la lógica
-├── views/ # Vistas/páginas principales de la aplicación (PortalHospital)
-├── App.tsx # Componente y diseño principal de la aplicación
-└── index.js # Punto de entrada de la aplicación
+│
+├── assets/
+│   ├── App.css
+│   ├── dashboard.css
+│   └── index.css
+│
+├── components/
+│   ├── AgendaModal.jsx
+│   ├── CitaCard.tsx
+│   ├── PacienteInfo.tsx
+│   ├── PatientCrudModal.jsx
+│   └── StatusCard.jsx
+│
+├── models/
+│   ├── hospitalModels.ts
+│   └── Patient.js
+│
+├── services/
+│   └── api.js
+│
+├── viewmodels/
+│   ├── useAuthVM.js
+│   ├── useDashboardVM.js
+│   └── useHospitalModels.ts
+│
+├── views/
+│   ├── DashboardView.jsx
+│   ├── DoctorDashboard.jsx
+│   ├── LoginDoctor.jsx
+│   ├── LoginUsuario.jsx
+│   ├── PortalHospital.tsx
+│   └── RegistroUsuario.jsx
+│
+├── App.js
+└── index.js
 ```
 
-## Primeros pasos
+---
 
-Para ejecutar este proyecto localmente, necesitarás tener Node.js y npm instalados.
+## Comunicación con el backend
 
-1. **Clonar el repositorio:**
+Las solicitudes al backend se encuentran centralizadas dentro de la carpeta **services**.
 
-```sh
+Actualmente el proyecto consume los endpoints REST utilizando **Fetch API**, permitiendo obtener información como:
 
+- Datos del paciente.
+- Información médica.
+- Citas agendadas.
+
+La URL base utilizada durante el desarrollo corresponde a:
+
+```text
+http://localhost:8084/api/v1/portal
+```
+
+---
+
+## Instalación
+
+Clonar el repositorio
+
+```bash
 git clone https://github.com/doomedplayer/rednorte-front.git
-
 ```
 
-2. **Navegar al directorio del proyecto:**
+Ingresar al proyecto
 
-```sh
-
+```bash
 cd rednorte-front
-
 ```
 
-3. **Instalar dependencias:**
+Instalar dependencias
 
-```sh
-
+```bash
 npm install
-
 ```
+
+---
+
+## Ejecución
+
+Iniciar el servidor de desarrollo
+
+```bash
+npm start
+```
+
+La aplicación estará disponible en:
+
+```text
+http://localhost:3000
+```
+
+---
 
 ## Scripts disponibles
 
-En el directorio del proyecto, puedes ejecutar:
+| Comando | Descripción |
+|---------|-------------|
+| npm start | Ejecuta la aplicación en modo desarrollo. |
+| npm test | Ejecuta las pruebas disponibles del proyecto. |
+| npm run build | Genera la versión optimizada para producción. |
 
-### `npm start`
-
-Ejecuta la aplicación en modo de desarrollo.
-Abre (http://localhost:3000) para verla en tu navegador.
-
-La página se recargará al realizar cambios. También puedes ver errores de lint en la consola.
-
-### `npm test`
-
-Inicia el ejecutor de pruebas en modo interactivo. Esto te permite ejecutar pruebas y ver los resultados a medida que realizas cambios en el código.
-
-### `npm run build`
-
-Compila la aplicación para producción en la carpeta `build`.
-Empaqueta correctamente React en modo producción y optimiza la compilación para obtener el mejor rendimiento. La compilación se minimiza y los nombres de archivo incluyen hashes. Tu aplicación está lista para desplegarse.
