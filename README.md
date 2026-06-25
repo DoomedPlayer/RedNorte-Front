@@ -104,12 +104,6 @@ Actualmente el proyecto consume los endpoints REST utilizando **Fetch API**, per
 - Información médica.
 - Citas agendadas.
 
-La URL base utilizada durante el desarrollo corresponde a:
-
-```text
-http://localhost:8084/api/v1/portal
-```
-
 ---
 
 ## Instalación
