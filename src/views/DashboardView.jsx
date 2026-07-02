@@ -12,7 +12,9 @@ export default function DashboardView() {
         correo: dashboardData?.email,
         contactoEmergenciaNombre: dashboardData?.contactoEmergenciaNombre,
         contactoEmergenciaParentesco: dashboardData?.contactoEmergenciaParentesco,
-        contactoEmergenciaTelefono: dashboardData?.contactoEmergenciaTelefono
+        contactoEmergenciaTelefono: dashboardData?.contactoEmergenciaTelefono,
+        esGes: dashboardData?.esGes,
+        antecedentesMedicos: dashboardData?.antecedentesMedicos
     };
 
     const listaEspera = {
@@ -97,6 +99,29 @@ export default function DashboardView() {
         }
     };
 
+    const formatTipoAtencion = (tipo) => {
+        if (!tipo) return 'Consulta Médica';
+        const texto = tipo.replace(/_/g, ' ').toLowerCase(); 
+        return texto.charAt(0).toUpperCase() + texto.slice(1); 
+    };
+
+    const getPrioridadColor = (prioridadTexto) => {
+        if (!prioridadTexto) return '#555';
+        if (prioridadTexto.includes('Nivel 1')) return '#dc3545'; 
+        if (prioridadTexto.includes('Nivel 2')) return '#fd7e14'; 
+        if (prioridadTexto.includes('Nivel 3')) return '#f0ad4e'; 
+        if (prioridadTexto.includes('Nivel 4')) return '#0275d8';
+        if (prioridadTexto.includes('Nivel 5')) return '#28a745'; 
+        return '#555';
+    };
+
+    const getEstadoStyles = (estadoTexto) => {
+        const estado = estadoTexto?.toLowerCase() || '';
+        if (estado.includes('asignada')) return { bg: '#d4edda', color: '#155724' }; 
+        if (estado.includes('pendiente') || estado.includes('espera')) return { bg: '#fff3cd', color: '#856404' }; 
+        if (estado.includes('evaluación')) return { bg: '#cce5ff', color: '#004085' }; 
+        return { bg: '#e2e3e5', color: '#383d41' }; 
+    };
 
     if (loading) {
         return (
@@ -184,30 +209,67 @@ export default function DashboardView() {
                     <div style={{ backgroundColor: 'white', borderRadius: '8px', padding: '25px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
                         <h4 style={{ margin: '0 0 15px 0', color: '#0056b3', borderBottom: '2px solid #f4f6f9', paddingBottom: '8px' }}>📋 Prioridad Sanitaria</h4>
                         {listaEspera && listaEspera.estado !== 'Sin registros' ? (
-                        <>
-                            <div style={{ marginBottom: '12px' }}>
-                                <small>ESTADO ACTUAL</small>
-                                <span style={{ display: 'block', fontWeight: 'bold' }}>{listaEspera.estado || listaEspera.estadoFrontend}</span>
-                            </div>
-                            <div style={{ marginBottom: '12px' }}>
-                                <small>FECHA INGRESO A LISTA</small>
-                                <span style={{ display: 'block' }}>{listaEspera.fechaFormateada || listaEspera.fechaRegistro || '-'}</span>
-                            </div>
-                            <div style={{ marginBottom: '12px' }}>
-                                <small>PRIORIDAD ASIGNADA</small>
-                                <span style={{ display: 'block' }}>{listaEspera.textoPrioridad || listaEspera.prioridad || '-'}</span>
-                            </div>
-                            
-                            {listaEspera.gesAuge && (
-                                <div style={{ backgroundColor: '#e8f5e9', padding: '8px 12px', borderRadius: '6px', borderLeft: '4px solid #2e7d32' }}>
-                                    <small style={{ color: '#2e7d32' }}>COBERTURA LEGAL</small>
-                                    <span style={{ color: '#1b5e20' }}>Patología bajo Garantía GES/AUGE</span>
+                            <>
+                                {/* ESTADO ACTUAL COMO CÁPSULA */}
+                                <div style={{ marginBottom: '18px' }}>
+                                    <small style={{ color: '#888', fontWeight: 'bold', display: 'block', fontSize: '10px', marginBottom: '6px' }}>ESTADO ACTUAL</small>
+                                    {(() => {
+                                        const estadoTexto = listaEspera.estado || listaEspera.estadoFrontend || 'Desconocido';
+                                        const styles = getEstadoStyles(estadoTexto);
+                                        return (
+                                            <span style={{ 
+                                                display: 'inline-block', 
+                                                backgroundColor: styles.bg, 
+                                                color: styles.color, 
+                                                padding: '6px 15px', 
+                                                borderRadius: '20px', // Esto le da la forma redonda de cápsula
+                                                fontSize: '12px', 
+                                                fontWeight: 'bold',
+                                                border: `1px solid ${styles.color}33` // Borde sutil
+                                            }}>
+                                                {estadoTexto}
+                                            </span>
+                                        );
+                                    })()}
                                 </div>
-                            )}
-                        </>
-                    ) : (
-                        <p style={{ color: '#777', fontSize: '14px' }}>No se encuentra en lista de espera actualmente.</p>
-                    )}
+
+                                <div style={{ marginBottom: '15px' }}>
+                                    <small style={{ color: '#888', fontWeight: 'bold', display: 'block', fontSize: '10px', marginBottom: '3px' }}>PRIORIDAD ASIGNADA</small>
+                                    <span style={{ 
+                                        display: 'block', 
+                                        fontSize: '15px', 
+                                        fontWeight: 'bold', 
+                                        color: getPrioridadColor(listaEspera.textoPrioridad || listaEspera.prioridad) 
+                                    }}>
+                                        {listaEspera.textoPrioridad || listaEspera.prioridad || '-'}
+                                    </span>
+                                </div>
+
+                                {patient.gesAuge && (
+                                    <div style={{ backgroundColor: '#e8f5e9', padding: '10px 12px', borderRadius: '6px', borderLeft: '4px solid #2e7d32', marginTop: '10px' }}>
+                                        <small style={{ color: '#2e7d32', fontWeight: 'bold', fontSize: '10px', display: 'block', marginBottom: '2px' }}>COBERTURA LEGAL</small>
+                                        <span style={{ color: '#1b5e20', fontSize: '13px', fontWeight: 'bold' }}>Patología bajo Garantía GES/AUGE</span>
+                                    </div>
+                                )}
+
+                                <div style={{ marginBottom: '15px' }}>
+                                    <small style={{ color: '#888', fontWeight: 'bold', display: 'block', fontSize: '10px', marginBottom: '3px' }}>FECHA INGRESO A LISTA</small>
+                                    <span style={{ display: 'block', color: '#555', fontSize: '14px' }}>
+                                        📅 {listaEspera.fechaFormateada || listaEspera.fechaRegistro || '-'}
+                                    </span>
+                                </div>
+
+                                {/* NUEVO: ANTECEDENTES MÉDICOS */}
+                                <div style={{ marginTop: '20px', borderTop: '1px solid #eee', paddingTop: '15px' }}>
+                                    <small style={{ color: '#888', fontWeight: 'bold', display: 'block', fontSize: '10px', marginBottom: '5px' }}>ANTECEDENTES CLÍNICOS</small>
+                                    <p style={{ margin: 0, color: '#555', fontSize: '13px', lineHeight: '1.5', backgroundColor: '#f8f9fa', padding: '10px', borderRadius: '6px', border: '1px solid #e9ecef' }}>
+                                        {patient?.antecedentesMedicos || 'Sin antecedentes médicos relevantes registrados en la ficha.'}
+                                    </p>
+                                </div>     
+                            </>
+                        ) : (
+                            <p style={{ color: '#777', fontSize: '14px', margin: 0 }}>No se encuentra en lista de espera actualmente.</p>
+                        )}
                     </div>
                 </div>
 
@@ -248,48 +310,46 @@ export default function DashboardView() {
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                                             {proximasCitas.map((cita) => {
                                                 const isAnulada = cita.estado === 'CANCELADA';
-                                                console.log("DEBUG LISTA ESPERA:", dashboardData?.estadoActual, dashboardData?.prioridadAsignada);
+                                                const tipoAtencionFormateado = formatTipoAtencion(cita.tipoAtencion);
+
                                                 return (
                                                     <div key={cita.id} style={{ 
                                                         backgroundColor: isAnulada ? '#fcfcfc' : '#f8f9fa', 
                                                         borderRadius: '6px', 
                                                         padding: '20px', 
-                                                        borderLeft: isAnulada ? '4px solid #dc3545' : '4px solid #28a745', 
+                                                        borderLeft: isAnulada ? '5px solid #dc3545' : '5px solid #28a745', 
                                                         display: 'flex', 
                                                         justifyContent: 'space-between', 
                                                         alignItems: 'center', 
                                                         opacity: isAnulada ? 0.6 : 1,
-                                                        border: '1px solid #eee'
+                                                        border: '1px solid #eee',
+                                                        borderLeftWidth: '5px'
                                                     }}>
                                                         <div>
-                                                            <h4 style={{ margin: '0 0 5px 0', color: isAnulada ? '#777' : '#333', textDecoration: isAnulada ? 'line-through' : 'none' }}>
-                                                                {cita.especialidadYTipo || 'Consulta Especialidad'} 
+                                                            <h4 style={{ margin: '0 0 8px 0', color: isAnulada ? '#777' : '#333', textDecoration: isAnulada ? 'line-through' : 'none', fontSize: '16px' }}>
+                                                                {tipoAtencionFormateado}
                                                             </h4>
-                                                            <p style={{ margin: '3px 0', color: '#666', fontSize: '13px' }}>👨‍⚕️ {cita.medico || 'Médico Asignado'}</p>
-                                                            <p style={{ margin: '3px 0', color: '#888', fontSize: '13px' }}>📅 {cita.fechaHora || cita.fecha} | 📍 {cita.lugar || 'Por confirmar'}</p>
-                                                            {isAnulada && <span style={{ color: '#dc3545', fontSize: '12px', fontWeight: 'bold' }}>CITA ANULADA</span>}
+                                                            <p style={{ margin: '3px 0', color: '#444', fontSize: '13px' }}>
+                                                                👨‍⚕️ <strong>Médico:</strong> {cita.medico || 'Médico Asignado'}
+                                                            </p>
+                                                            <p style={{ margin: '3px 0', color: '#555', fontSize: '13px' }}>
+                                                                🩺 <strong>Especialidad:</strong> {cita.especialidad || 'No especificada'}
+                                                            </p>
+                                                            <p style={{ margin: '6px 0 0 0', color: '#888', fontSize: '12px' }}>
+                                                                📅 {cita.fechaHora || cita.fecha} | 📍 {cita.lugar || 'Por confirmar'}
+                                                            </p>
                                                         </div>
                                                         
-                                                        {/* INDICADOR VISUAL Y ACCIÓN */}
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                                                             {!isAnulada && (
                                                                 <button 
                                                                     onClick={() => handleAnularHora(cita.id)}
-                                                                    style={{ backgroundColor: '#dc3545', color: 'white', border: 'none', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}
+                                                                    style={{ backgroundColor: '#dc3545', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}
                                                                 >
                                                                     Anular
                                                                 </button>
                                                             )}
-                                                            <div style={{ 
-                                                                backgroundColor: isAnulada ? '#f8d7da' : '#e8f5e9', 
-                                                                padding: '10px', 
-                                                                borderRadius: '50%', 
-                                                                display: 'flex', 
-                                                                justifyContent: 'center', 
-                                                                alignItems: 'center', 
-                                                                width: '25px', 
-                                                                height: '25px' 
-                                                            }}>
+                                                            <div style={{ backgroundColor: isAnulada ? '#f8d7da' : '#e8f5e9', padding: '10px', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', width: '25px', height: '25px' }}>
                                                                 {isAnulada ? (
                                                                     <span style={{ color: '#dc3545', fontSize: '16px', fontWeight: 'bold' }} title="Anulada">✖</span>
                                                                 ) : (
@@ -306,39 +366,71 @@ export default function DashboardView() {
                             )}
 
                             {activeTab === 'historial' && (
-                                <div>
-                                    <h3 style={{ margin: '0 0 20px 0', color: '#333' }}>Historial de Atenciones</h3>
-                                    {historialCitas.length === 0 ? (
-                                        <p style={{ color: '#777' }}>No tienes citas anuladas en tu historial.</p>
-                                    ) : (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                                            {historialCitas.map((cita) => {
-                                                const isPresente = cita.estado === 'PRESENTE' || cita.estado === 'ASISTIDA';
-                                                const colorBorde = isPresente ? '#28a745' : '#dc3545';
-                                                const colorFondo = isPresente ? '#e8f5e9' : '#fff5f5';
+                            <div>
+                                <h3 style={{ margin: '0 0 20px 0', color: '#333' }}>Historial de Atenciones</h3>
+                                
+                                {historialCitas.length === 0 ? (
+                                    <p style={{ color: '#777' }}>No tienes registros en tu historial médico.</p>
+                                ) : (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                                        {historialCitas.map((cita) => {
+                                            const isPresente = cita.estado === 'PRESENTE' || cita.estado === 'ASISTIDA' || cita.estado === 'FINALIZADA';
+                                            const colorBorde = isPresente ? '#28a745' : '#dc3545';
+                                            const colorFondo = isPresente ? '#e8f5e9' : '#fff5f5';
 
-                                                return (
-                                                    <div key={cita.id} style={{ backgroundColor: colorFondo, borderLeft: `5px solid ${colorBorde}`, borderRadius: '6px', padding: '15px', display: 'flex', justifyContent: 'space-between' }}>
-                                                        <div>
-                                                            <h4 style={{ margin: '0' }}>{cita.especialidadYTipo}</h4>
-                                                            <p style={{ margin: '3px 0', fontSize: '12px', color: '#666' }}>Fecha: {cita.fechaHora}</p>
-                                                        </div>
-                                                        <span style={{ 
-                                                            color: isPresente ? '#28a745' : '#dc3545', 
-                                                            fontWeight: 'bold', 
-                                                            padding: '5px 10px', 
-                                                            borderRadius: '4px',
-                                                            fontSize: '12px' 
-                                                        }}>
-                                                            {isPresente ? '✔ ATENDIDO' : '✖ CANCELADO'}
-                                                        </span>
+                                            const tipoAtencionFormateado = formatTipoAtencion(cita.tipoAtencion);
+
+                                            return (
+                                                <div key={cita.id} style={{ 
+                                                    backgroundColor: colorFondo, 
+                                                    borderLeft: `5px solid ${colorBorde}`, 
+                                                    borderRadius: '6px', 
+                                                    padding: '20px', 
+                                                    display: 'flex', 
+                                                    justifyContent: 'space-between',
+                                                    alignItems: 'center',
+                                                    border: '1px solid #eee',
+                                                    borderLeftWidth: '5px' 
+                                                }}>
+                                                    <div>
+                                                        {/* 1. tipoAtencion como Título principal */}
+                                                        <h4 style={{ margin: '0 0 8px 0', color: '#333', fontSize: '16px', textTransform: 'capitalize' }}>
+                                                            {tipoAtencionFormateado}
+                                                        </h4>
+                                                        
+                                                        {/* 2. Médico con etiqueta en negrita HTML real */}
+                                                        <p style={{ margin: '3px 0', color: '#444', fontSize: '13px' }}>
+                                                            👨‍⚕️ <strong>Médico:</strong> {cita.medico || 'Médico RedNorte'}
+                                                        </p>
+
+                                                        {/* 3. Especialidad justo debajo del médico */}
+                                                        <p style={{ margin: '3px 0', color: '#555', fontSize: '13px' }}>
+                                                            🩺 <strong>Especialidad:</strong> {cita.especialidad || 'No especificada'}
+                                                        </p>
+
+                                                        <p style={{ margin: '6px 0 0 0', color: '#777', fontSize: '12px' }}>
+                                                            📅 {cita.fechaHora || cita.fecha} | 📍 {cita.lugar || 'Recinto RedNorte'}
+                                                        </p>
                                                     </div>
-                                                );
-                                            })}
-                                        </div>
-                                    )}
-                                </div>
-                            )}
+                                                    
+                                                    <span style={{ 
+                                                        color: colorBorde, 
+                                                        fontWeight: 'bold', 
+                                                        padding: '6px 12px', 
+                                                        borderRadius: '4px',
+                                                        fontSize: '12px',
+                                                        backgroundColor: isPresente ? 'rgba(40, 167, 69, 0.1)' : 'rgba(220, 53, 69, 0.1)'
+                                                    }}>
+                                                        {isPresente ? '✔ ATENDIDO' : '✖ CANCELADO'}
+                                                    </span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
                         </div>
                     </div>
 

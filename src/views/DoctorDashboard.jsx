@@ -51,21 +51,53 @@ export default function DoctorDashboard({ onNavigate }) {
                     api.get(`/api/espera/lista/${doctorActual.idEspecialidad}`) 
                 ]);
 
-                const pacientesMapeados = pacientesResponse.data.map(p => ({
-                    id: p.rut, rut: p.rut, nombre: p.nombreCompleto, edad: "N/A", prevision: "Fonasa", estado: p.estadoListaEspera
-                }));
+                const pacientesMapeados = pacientesResponse.data.map(p => {
+                    let previsionFormateada = p.prevision || "Sin Previsión";
+                    if(previsionFormateada.includes('_')) {
+                        let partes = previsionFormateada.split('_');
+                        previsionFormateada = partes[0].charAt(0).toUpperCase() + partes[0].slice(1).toLowerCase() + " " + partes[1];
+                    } else if (previsionFormateada === "ISAPRE") {
+                        previsionFormateada = "Isapre";
+                    }
+
+                    return {
+                        id: p.rut, 
+                        rut: p.rut, 
+                        nombre: p.nombreCompleto, 
+                        edad: p.edad ? p.edad : "S/I", 
+                        prevision: previsionFormateada, 
+                        estado: p.estadoListaEspera
+                    };
+                });
 
                 const citasMapeadas = citasResponse.data.map(c => {
                     const pacienteEncontrado = pacientesMapeados.find(p => p.rut === c.rutPaciente);
-                    let fechaSolo = "Por asignar", horaSolo = "Por asignar";
+                    const estadoSrv = c.estado || 'Programada';
+                    const estadoNormalizado = estadoSrv.charAt(0).toUpperCase() + estadoSrv.slice(1).toLowerCase();
+
+                    let fechaSolo = "Por asignar", horaSolo = "Por asignar", lugarSrv = c.lugar;
                     if (c.fechaHora) {
                         const partes = c.fechaHora.split('T');
                         fechaSolo = partes[0];
                         horaSolo = partes[1] ? partes[1].substring(0, 5) : "00:00";
                     }
+
+                    // 2. Si la cita está cancelada, vaciamos la fecha y el lugar para que la UI muestre "---"
+                    if (estadoNormalizado === 'Cancelada') {
+                        fechaSolo = 'Por asignar';
+                        horaSolo = 'Por asignar';
+                        lugarSrv = 'Por asignar';
+                    }
+
                     return {
-                        id: c.id, rut: c.rutPaciente, paciente: pacienteEncontrado ? pacienteEncontrado.nombre : 'Desconocido',
-                        fecha: fechaSolo, hora: horaSolo, lugar: c.lugar, estado: c.estado || 'Programada', isWaitlist: false
+                        id: c.id, 
+                        rut: c.rutPaciente, 
+                        paciente: pacienteEncontrado ? pacienteEncontrado.nombre : 'Desconocido',
+                        fecha: fechaSolo, 
+                        hora: horaSolo, 
+                        lugar: lugarSrv, 
+                        estado: estadoNormalizado, // Inyectamos el estado corregido a la tabla
+                        isWaitlist: false
                     };
                 });
 
@@ -356,11 +388,89 @@ export default function DoctorDashboard({ onNavigate }) {
             if (result.isConfirmed) {
                 try {
                     await api.post(`/api/citas/${id}/cancelar`);
-                    setCitas(citas.map(c => c.id === id ? { ...c, estado: 'Cancelada', fecha: 'Por asignar', hora: 'Por asignar' } : c));
-                    Swal.fire('¡Cancelada!', 'La hora médica ha sido anulada.', 'success');
+                    setCitas(citas.map(c => c.id === id ? { ...c, estado: 'Cancelada', fecha: 'Por asignar', hora: 'Por asignar', lugar: 'Por asignar' } : c));
+                    
+                    Swal.fire('¡Cancelada!', 'Procesando reasignación automática en segundo plano...', 'success');
+                    setTimeout(async () => {
+                        try {
+                            const [citasResponse, esperaResponse] = await Promise.all([
+                                api.get(`/api/citas/especialidad/${doctorInfo.especialidad}`), 
+                                api.get(`/api/espera/lista/${doctorInfo.idEspecialidad}`) 
+                            ]);
+
+                            const citasMapeadas = citasResponse.data.map(c => {
+                                const pacienteEncontrado = pacientes.find(p => p.rut === c.rutPaciente);
+
+                                const estadoSrv = c.estado || 'Programada';
+                                const estadoNormalizado = estadoSrv.charAt(0).toUpperCase() + estadoSrv.slice(1).toLowerCase();
+
+                                let fechaSolo = "Por asignar", horaSolo = "Por asignar", lugarSrv = c.lugar;
+                                if (estadoNormalizado !== 'Cancelada' && c.fechaHora) {
+                                    const partes = c.fechaHora.split('T');
+                                    fechaSolo = partes[0];
+                                    horaSolo = partes[1] ? partes[1].substring(0, 5) : "00:00";
+                                } else if (estadoNormalizado === 'Cancelada') {
+                                    lugarSrv = "Por asignar";
+                                }
+
+                                return {
+                                    id: c.id, rut: c.rutPaciente, paciente: pacienteEncontrado ? pacienteEncontrado.nombre : 'Desconocido',
+                                    fecha: fechaSolo, hora: horaSolo, lugar: lugarSrv, estado: estadoNormalizado, isWaitlist: false
+                                };
+                            });
+
+                            const listaEsperaMapeada = esperaResponse.data.map(espera => {
+                                const pacienteEncontrado = pacientes.find(p => p.rut === espera.rutPaciente);
+                                return {
+                                    id: `espera-${espera.idLista}`, rut: espera.rutPaciente, paciente: pacienteEncontrado ? pacienteEncontrado.nombre : 'Desconocido',
+                                    fecha: 'Por asignar', hora: 'Por asignar', lugar: 'Por asignar', estado: 'En Espera', isWaitlist: true
+                                };
+                            });
+
+                            setCitas([...citasMapeadas, ...listaEsperaMapeada]);
+                        } catch (err) {
+                            console.error("Error recargando citas tras cancelación:", err);
+                        }
+                    }, 1500); 
+
                 } catch (error) {
                     console.error("Error al cancelar:", error);
                     Swal.fire('Error', 'No se pudo anular la cita en el servidor.', 'error');
+                }
+            }
+        });
+    };
+
+    const handleMarcarPresente = (cita) => {
+        Swal.fire({
+            title: '¿Marcar como Atendido?',
+            text: `Confirmarás que ${cita.paciente} se presentó a la consulta. Se enviará a su historial médico.`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#28a745',
+            cancelButtonColor: '#888',
+            confirmButtonText: 'Sí, marcar presente'
+        }).then(async (result) => {
+            if (result.isConfirmed) {
+                try {
+                    const payloadActualizacion = {
+                        rutPaciente: cita.rut, 
+                        especialidad: doctorInfo.especialidad, 
+                        tipoAtencion: "CONTROL",
+                        medico: doctorInfo.nombre, 
+                        fechaHora: `${cita.fecha}T${cita.hora}:00`, 
+                        lugar: cita.lugar, 
+                        estado: 'PRESENTE' 
+                    };
+
+                    await api.put(`/api/citas/${cita.id}`, payloadActualizacion);
+
+                    setCitas(citas.map(c => c.id === cita.id ? { ...c, estado: 'Presente' } : c));
+                    
+                    Swal.fire('¡Atendido!', 'La cita ha sido marcada como completada.', 'success');
+                } catch (error) {
+                    console.error("Error al marcar como presente:", error);
+                    Swal.fire('Error', 'No se pudo actualizar el estado de la cita en el servidor.', 'error');
                 }
             }
         });
@@ -508,6 +618,13 @@ export default function DoctorDashboard({ onNavigate }) {
                                                         </span>
                                                     </td>
                                                     <td style={{ padding: '15px', textAlign: 'center', display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                                                        {(cita.estado === 'Programada' || cita.estado === 'Reasignada') && (
+                                                            <button 
+                                                                onClick={() => handleMarcarPresente(cita)} 
+                                                                style={{ backgroundColor: '#e8f5e9', border: '1px solid #c8e6c9', color: '#2e7d32', padding: '6px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}>
+                                                                ✔ Atendido
+                                                            </button>
+                                                        )}
                                                         <button onClick={() => handleGestionarCita(cita)} style={{ backgroundColor: cita.estado === 'En Espera' ? '#e3f2fd' : '#fff3cd', border: cita.estado === 'En Espera' ? '1px solid #bbdefb' : '1px solid #ffeeba', color: cita.estado === 'En Espera' ? '#1565c0' : '#856404', padding: '6px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}>
                                                             {cita.estado === 'En Espera' ? '📅 Asignar' : '🔄 Reasignar'}
                                                         </button>
